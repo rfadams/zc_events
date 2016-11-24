@@ -35,11 +35,11 @@ Sending and receiving events requires the `pika` and `ujson` libraries to be ins
 
 Create a file called `microservice_events.py` and place it somewhere like the `mp-slots-and-orders/slots_and_orders/tasks/` directory. For now this will be an empty file, but in the future this is where any events that this service listens to will go.
 
-Next create a file called `microservice_events_listener.py` and place it in the same directory. This file will have the following contents
+Next create a file called `microservice_events_listener.py` and place it in the same directory. This file will have the following contents (replacing `slots_and_orders` with the current project name)
 
 ```python
 import logging
-from ..celery import app
+from slots_and_orders import celery_app as app
 from . import microservice_events
 
 @app.task(name='microservice.event')
@@ -63,4 +63,29 @@ Go back to `settings.py` and add the new event listener file to `CELERY_IMPORTS`
 CELERY_IMPORTS = (
     'slots_and_orders.tasks.microservice_events_listener',
 )
+```
+
+## How to configure a service to listen to events
+
+In the `proj/proj/__init__.py` file, import and instantiate the `EventClient` from `zc_events`. This will serve as a singleton for all event requests and holds a Redis connection pool open for events. This is a good time to add the Celery import in here as well and make sure all parts of the project import celery from here.
+
+```python
+from __future__ import absolute_import, unicode_literals
+from .celery import app as celery_app
+
+from django.conf import settings
+from zc_events import EventClient
+
+
+event_client = EventClient(settings.REDIS_URL)
+__all__ = ['celery_app']
+```
+
+When you need to make a service-to-service request, you can now do something similar to this:
+
+```python
+from slots_and_orders import event_client
+
+order = event_client.get_remote_resource('Order', '23131024')
+print 'Order name: {}'.format(order.name)
 ```
