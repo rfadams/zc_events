@@ -32,6 +32,7 @@ setup(
     ],
     install_requires=[
         'pika>=0.10.0,<0.11.0',
+        'pika_pool>=0.1.3,<0.1.4',
         'ujson>=1.35,<1.36',
         'celery>=3.1.10,<4.0.0',
         'inflection>=0.3.1,<0.4',

@@ -77,7 +77,7 @@ from django.conf import settings
 from zc_events import EventClient
 
 
-event_client = EventClient(settings.REDIS_URL)
+event_client = EventClient(settings.REDIS_URL, settings.BROKER_URL)
 __all__ = ['celery_app']
 ```
 
