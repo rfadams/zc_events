@@ -67,17 +67,16 @@ CELERY_IMPORTS = (
 
 ## How to configure a service to listen to events
 
-In the `proj/proj/__init__.py` file, import and instantiate the `EventClient` from `zc_events`. This will serve as a singleton for all event requests and holds a Redis connection pool open for events. This is a good time to add the Celery import in here as well and make sure all parts of the project import celery from here.
+In the `proj/proj/__init__.py` file, import and instantiate the `EventClient` from `zc_events`. This will serve as a singleton for all event requests and holds a Redis connection pool and RabbitMQ connection pool open for events. This is a good time to add the Celery import in here as well and make sure all parts of the project import celery from here.
 
 ```python
 from __future__ import absolute_import, unicode_literals
 from .celery import app as celery_app
 
-from django.conf import settings
 from zc_events import EventClient
 
 
-event_client = EventClient(settings.REDIS_URL, settings.BROKER_URL)
+event_client = EventClient()
 __all__ = ['celery_app']
 ```
 
