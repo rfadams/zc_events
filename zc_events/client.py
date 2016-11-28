@@ -2,7 +2,6 @@ import urllib
 
 from django.http import HttpRequest, QueryDict
 import redis
-from rest_framework.exceptions import MethodNotAllowed
 import ujson
 
 from zc_common.jwt_auth.utils import jwt_encode_handler
@@ -17,7 +16,22 @@ def structure_response(status, data):
     })
 
 
+class MethodNotAllowed(Exception):
+    status_code = 405
+    default_detail = _('Method "{method}" not allowed.')
+
+    def __init__(self, method, detail=None):
+        if detail is not None:
+            self.detail = force_text(detail)
+        else:
+            self.detail = force_text(self.default_detail).format(method=method)
+
+    def __str__(self):
+        return self.detail
+
+
 class EventClient(object):
+
     def __init__(self, redis_url):
         pool = redis.ConnectionPool().from_url(redis_url, db=0)
         self.redis_client = redis.Redis(connection_pool=pool)

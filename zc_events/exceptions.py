@@ -1,11 +1,16 @@
-from rest_framework.status import HTTP_408_REQUEST_TIMEOUT
-from rest_framework.exceptions import APIException
-
-
-class RequestTimeout(APIException):
-    status_code = HTTP_408_REQUEST_TIMEOUT
+class RequestTimeout(Exception):
+    status_code = 408
     default_detail = 'Request timed out.'
     default_code = 'request_timeout'
+
+    def __init__(self, detail=None):
+        if detail is not None:
+            self.detail = force_text(detail)
+        else:
+            self.detail = force_text(self.default_detail)
+
+    def __str__(self):
+        return self.detail
 
 
 class EmitEventException(Exception):
