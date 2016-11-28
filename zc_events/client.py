@@ -129,7 +129,7 @@ class EventClient(object):
         request.META = {
             'HTTP_AUTHORIZATION': 'JWT {}'.format(jwt_encode_handler(jwt_payload)),
             'QUERY_STRING': event.get('query_string'),
-            'HTTP_HOST': event.get('http_host', 'LOCAL_SERVER'),
+            'HTTP_HOST': event.get('http_host', 'local.zerocater.com'),
         }
 
         # Call the viewset passing the appropriate params
