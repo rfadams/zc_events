@@ -1,5 +1,3 @@
-import uuid
-
 from inflection import underscore
 import ujson
 
