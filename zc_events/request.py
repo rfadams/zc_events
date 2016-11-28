@@ -51,6 +51,7 @@ def wrap_resource_from_response(response):
 
 
 class RemoteResourceWrapper(object):
+
     def __init__(self, data, included=None):
         result = self._get_from_include(included, data)
         self.data = result if result else data
@@ -96,6 +97,7 @@ class RemoteResourceWrapper(object):
 
 
 class RemoteResourceListWrapper(list):
+
     def __init__(self, seq, included=None):
         super(RemoteResourceListWrapper, self).__init__()
         self.data = seq
@@ -103,5 +105,3 @@ class RemoteResourceListWrapper(list):
 
     def add_items_from_data(self, included):
         map(lambda x: self.append(RemoteResourceWrapper(x, included)), self.data)
-
-
