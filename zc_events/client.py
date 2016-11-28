@@ -40,11 +40,11 @@ class MethodNotAllowed(Exception):
 
 
 class EventClient(object):
-    def __init__(self, redis_url, rabbitmq_broker_url):
-        pool = redis.ConnectionPool().from_url(redis_url, db=0)
+    def __init__(self):
+        pool = redis.ConnectionPool().from_url(settings.REDIS_URL, db=0)
         self.redis_client = redis.Redis(connection_pool=pool)
 
-        pika_params = pika.URLParameters(rabbitmq_broker_url)
+        pika_params = pika.URLParameters(settings.BROKER_URL)
         pika_params.socket_timeout = 5
         self.pika_pool = pika_pool.QueuedPool(
             create=lambda: pika.BlockingConnection(parameters=pika_params),
