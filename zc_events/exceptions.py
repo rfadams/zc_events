@@ -5,9 +5,9 @@ class RequestTimeout(Exception):
 
     def __init__(self, detail=None):
         if detail is not None:
-            self.detail = force_text(detail)
+            self.detail = detail
         else:
-            self.detail = force_text(self.default_detail)
+            self.detail = self.default_detail
 
     def __str__(self):
         return self.detail
