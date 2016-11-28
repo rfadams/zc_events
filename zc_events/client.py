@@ -27,13 +27,13 @@ def structure_response(status, data):
 
 class MethodNotAllowed(Exception):
     status_code = 405
-    default_detail = _('Method "{method}" not allowed.')
+    default_detail = 'Method "{method}" not allowed.'
 
     def __init__(self, method, detail=None):
         if detail is not None:
-            self.detail = force_text(detail)
+            self.detail = detail
         else:
-            self.detail = force_text(self.default_detail).format(method=method)
+            self.detail = self.default_detail.format(method=method)
 
     def __str__(self):
         return self.detail
