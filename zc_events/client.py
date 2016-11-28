@@ -1,12 +1,21 @@
+import logging
 import urllib
+import uuid
 
-from django.http import HttpRequest, QueryDict
+import pika
+import pika_pool
 import redis
 import ujson
+from django.conf import settings
+from django.http import HttpRequest, QueryDict
+from rest_framework.exceptions import MethodNotAllowed
 
 from zc_common.jwt_auth.utils import jwt_encode_handler
-from zc_events.exceptions import RequestTimeout, ServiceRequestException
-from zc_events.request import emit_request_event, wrap_resource_from_response
+from zc_events.exceptions import EmitEventException, RequestTimeout, ServiceRequestException
+from zc_events.request import wrap_resource_from_response
+
+
+logger = logging.getLogger('django')
 
 
 def structure_response(status, data):
@@ -31,10 +40,75 @@ class MethodNotAllowed(Exception):
 
 
 class EventClient(object):
-
-    def __init__(self, redis_url):
-        pool = redis.ConnectionPool().from_url(redis_url, db=0)
+    def __init__(self):
+        pool = redis.ConnectionPool().from_url(settings.REDIS_URL, db=0)
         self.redis_client = redis.Redis(connection_pool=pool)
+
+        pika_params = pika.URLParameters(settings.BROKER_URL)
+        pika_params.socket_timeout = 5
+        self.pika_pool = pika_pool.QueuedPool(
+            create=lambda: pika.BlockingConnection(parameters=pika_params),
+            max_size=10,
+            max_overflow=10,
+            timeout=10,
+            recycle=3600,
+            stale=45,
+        )
+
+    def emit_microservice_event(self, event_type, *args, **kwargs):
+        task_id = str(uuid.uuid4())
+
+        keyword_args = {'task_id': task_id}
+        keyword_args.update(kwargs)
+
+        message = {
+            'task': 'microservice.event',
+            'id': task_id,
+            'args': [event_type] + list(args),
+            'kwargs': keyword_args
+        }
+
+        event_queue_name = '{}-events'.format(settings.SERVICE_NAME)
+        event_body = ujson.dumps(message)
+
+        logger.info('MICROSERVICE_EVENT::EMIT: Emitting [{}:{}] event for object ({}:{}) and user {}'.format(
+            event_type, task_id, kwargs.get('resource_type'), kwargs.get('resource_id'),
+            kwargs.get('user_id')))
+
+        with self.pika_pool.acquire() as cxn:
+            cxn.channel.queue_declare(queue=event_queue_name, durable=True)
+            response = cxn.channel.basic_publish(
+                'microservice-events',
+                '',
+                event_body,
+                pika.BasicProperties(
+                    content_type='application/json',
+                    content_encoding='utf-8'
+                )
+            )
+
+        if not response:
+            logger.info(
+                'MICROSERVICE_EVENT::EMIT_FAILURE: Failure emitting [{}:{}] event for object ({}:{}) and user {}'.format(
+                    event_type, task_id, kwargs.get('resource_type'), kwargs.get('resource_id'), kwargs.get('user_id')))
+            raise EmitEventException("Message may have failed to deliver")
+
+        return response
+
+    def emit_request_event(self, event_type, method, user_id, roles, **kwargs):
+        """Emit microservice request event."""
+        response_key = 'request-{}'.format(uuid.uuid4())
+
+        self.emit_microservice_event(
+            event_type,
+            method=method,
+            user_id=user_id,
+            roles=roles,
+            response_key=response_key,
+            **kwargs
+        )
+
+        return response_key
 
     def handle_request_event(self, event, viewset=None, relationship_viewset=None):
         """
@@ -110,7 +184,7 @@ class EventClient(object):
         """
         Emit a request event on behalf of a service.
         """
-        key = emit_request_event(
+        key = self.emit_request_event(
             '{}_request'.format(resource_type.lower()),
             method,
             user_id,

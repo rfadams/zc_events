@@ -1,26 +1,7 @@
-import uuid
-
 from inflection import underscore
 import ujson
 
-from zc_events.emit import emit_microservice_event
 from zc_events.exceptions import RemoteResourceException
-
-
-def emit_request_event(event_type, method, user_id, roles, **kwargs):
-    """Emit microservice request event."""
-    response_key = 'request-{}'.format(uuid.uuid4())
-
-    emit_microservice_event(
-        event_type,
-        method=method,
-        user_id=user_id,
-        roles=roles,
-        response_key=response_key,
-        **kwargs
-    )
-
-    return response_key
 
 
 def _included_to_dict(included):
