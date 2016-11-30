@@ -42,6 +42,7 @@ class MethodNotAllowed(Exception):
 
 
 class EventClient(object):
+
     def __init__(self):
         pool = redis.ConnectionPool().from_url(settings.REDIS_URL, db=0)
         self.redis_client = redis.Redis(connection_pool=pool)
@@ -182,7 +183,7 @@ class EventClient(object):
         return ujson.loads(zlib.decompress(result[1]))
 
     def make_service_request(self, resource_type, resource_id=None, user_id=None, query_string=None, method='GET',
-                             data=None):
+                             data=None, related_resource=None):
         """
         Emit a request event on behalf of a service.
         """
@@ -193,6 +194,7 @@ class EventClient(object):
             ['service'],
             id=resource_id,
             query_string=query_string,
+            related_resource=related_resource,
             body=data,
         )
         response = self.get_request_event_response(key)
@@ -205,7 +207,7 @@ class EventClient(object):
 
         return response
 
-    def get_remote_resource(self, resource_type, pk, user_id=None, include=None, page_size=None):
+    def get_remote_resource(self, resource_type, pk, user_id=None, include=None, page_size=None, related_resource=None):
         """
         Function called by services to make a request to another service for a resource.
         """
