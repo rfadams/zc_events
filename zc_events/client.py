@@ -1,6 +1,7 @@
 import logging
 import urllib
 import uuid
+import zlib
 
 import pika
 import pika_pool
@@ -19,10 +20,10 @@ logger = logging.getLogger('django')
 
 
 def structure_response(status, data):
-    return ujson.dumps({
+    return zlib.compress(ujson.dumps({
         'status': status,
         'body': data
-    })
+    }))
 
 
 class MethodNotAllowed(Exception):
@@ -173,11 +174,11 @@ class EventClient(object):
         """
         3 second blocking read on Redis to retrieve the result of a request event.
         """
-        result = self.redis_client.blpop(response_key, 3)
+        result = self.redis_client.blpop(response_key, 5)
         if not result:
             raise RequestTimeout
 
-        return ujson.loads(result[1])
+        return ujson.loads(zlib.decompress(result[1]))
 
     def make_service_request(self, resource_type, resource_id=None, user_id=None, query_string=None, method='GET',
                              data=None):
