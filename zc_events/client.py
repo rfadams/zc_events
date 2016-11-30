@@ -9,6 +9,7 @@ import redis
 import ujson
 from django.conf import settings
 from django.http import HttpRequest, QueryDict
+from inflection import underscore
 from rest_framework.exceptions import MethodNotAllowed
 
 from zc_common.jwt_auth.utils import jwt_encode_handler
@@ -186,7 +187,7 @@ class EventClient(object):
         Emit a request event on behalf of a service.
         """
         key = self.emit_request_event(
-            '{}_request'.format(resource_type.lower()),
+            '{}_request'.format(underscore(resource_type)),
             method,
             user_id,
             ['service'],
