@@ -185,7 +185,7 @@ class EventClient(object):
         return ujson.loads(zlib.decompress(result[1]))
 
     def fetch_remote_resource(self, resource_type, resource_id=None, user_id=None, query_string=None, method=None,
-                              data=None, related_resource=None):
+                              data=None, related_resource=None, view_route=None):
         """
         Emit a request event on behalf of a service.
         """
@@ -198,17 +198,18 @@ class EventClient(object):
             query_string=query_string,
             related_resource=related_resource,
             body=data,
+            view_route=view_route,
         )
         response = self.get_request_event_response(key)
 
         return response
 
     def make_service_request(self, resource_type, resource_id=None, user_id=None, query_string=None, method=None,
-                             data=None, related_resource=None):
+                             data=None, related_resource=None, view_route=None):
 
         response = self.fetch_remote_resource(resource_type, resource_id=resource_id, user_id=user_id,
                                               query_string=query_string, method=method,
-                                              data=data, related_resource=related_resource)
+                                              data=data, related_resource=related_resource, view_route=view_route)
 
         if 400 <= response['status'] < 600:
             error_msg = '{} Error: [{}] request for {}. Error Content: {}'.format(
@@ -218,7 +219,8 @@ class EventClient(object):
 
         return response
 
-    def get_remote_resource(self, resource_type, pk=None, user_id=None, include=None, page_size=None, related_resource=None):
+    def get_remote_resource(self, resource_type, pk=None, user_id=None, include=None, page_size=None,
+                            related_resource=None, view_route=None):
         """
         Function called by services to make a request to another service for a resource.
         """
@@ -237,6 +239,7 @@ class EventClient(object):
             query_string = urllib.urlencode(params)
 
         response = self.make_service_request(resource_type, resource_id=pk,
-                                             user_id=user_id, query_string=query_string, method='GET', related_resource=related_resource)
+                                             user_id=user_id, query_string=query_string, method='GET',
+                                             related_resource=related_resource, view_route=view_route)
         wrapped_resource = wrap_resource_from_response(response)
         return wrapped_resource
