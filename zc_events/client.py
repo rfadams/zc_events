@@ -136,7 +136,9 @@ class EventClient(object):
         }
 
         # Call the viewset passing the appropriate params
-        if event.get('id') and event.get('relationship'):
+        if event.get('view_route'):
+            result = viewset.as_view({event.method.lower(): event.get['view_route']})
+        elif event.get('id') and event.get('relationship'):
             result = relationship_viewset.as_view()(request, pk=event.get('id'),
                                                     related_field=event.get('relationship'))
         elif request.method == 'GET' and event.get('id') and event.get('related_resource'):
