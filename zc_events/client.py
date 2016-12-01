@@ -42,6 +42,7 @@ class MethodNotAllowed(Exception):
 
 
 class EventClient(object):
+
     def __init__(self):
         pool = redis.ConnectionPool().from_url(settings.REDIS_URL, db=0)
         self.redis_client = redis.Redis(connection_pool=pool)
@@ -181,8 +182,8 @@ class EventClient(object):
 
         return ujson.loads(zlib.decompress(result[1]))
 
-    def make_service_request(self, resource_type, resource_id=None, user_id=None, query_string=None, method='GET',
-                             data=None):
+    def fetch_remote_resource(self, resource_type, resource_id=None, user_id=None, query_string=None, method=None,
+                              data=None, related_resource=None):
         """
         Emit a request event on behalf of a service.
         """
@@ -193,9 +194,19 @@ class EventClient(object):
             ['service'],
             id=resource_id,
             query_string=query_string,
+            related_resource=related_resource,
             body=data,
         )
         response = self.get_request_event_response(key)
+
+        return response
+
+    def make_service_request(self, resource_type, resource_id=None, user_id=None, query_string=None, method=None,
+                             data=None, related_resource=None):
+
+        response = self.fetch_remote_resource(resource_type, resource_id=resource_id, user_id=user_id,
+                                              query_string=query_string, method=method,
+                                              data=data, related_resource=related_resource)
 
         if 400 <= response['status'] < 600:
             error_msg = '{} Error: [{}] request for {}. Error Content: {}'.format(
@@ -205,7 +216,7 @@ class EventClient(object):
 
         return response
 
-    def get_remote_resource(self, resource_type, pk, user_id=None, include=None, page_size=None):
+    def get_remote_resource(self, resource_type, pk, user_id=None, include=None, page_size=None, related_resource=None):
         """
         Function called by services to make a request to another service for a resource.
         """
@@ -220,6 +231,7 @@ class EventClient(object):
         if params:
             query_string = urllib.urlencode(params)
 
-        response = self.make_service_request(resource_type, pk, user_id, query_string)
+        response = self.make_service_request(resource_type, resource_id=pk,
+                                             user_id=user_id, query_string=query_string, method='GET', related_resource=related_resource)
         wrapped_resource = wrap_resource_from_response(response)
         return wrapped_resource
