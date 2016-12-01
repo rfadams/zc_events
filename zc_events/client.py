@@ -182,8 +182,8 @@ class EventClient(object):
 
         return ujson.loads(zlib.decompress(result[1]))
 
-    def make_service_request(self, resource_type, resource_id=None, user_id=None, query_string=None, method=None,
-                             data=None, related_resource=None):
+    def fetch_remote_resource(self, resource_type, resource_id=None, user_id=None, query_string=None, method=None,
+                              data=None, related_resource=None):
         """
         Emit a request event on behalf of a service.
         """
@@ -198,6 +198,15 @@ class EventClient(object):
             body=data,
         )
         response = self.get_request_event_response(key)
+
+        return response
+
+    def make_service_request(self, resource_type, resource_id=None, user_id=None, query_string=None, method=None,
+                             data=None, related_resource=None):
+
+        response = self.fetch_remote_resource(resource_type, resource_id=resource_id, user_id=user_id,
+                                              query_string=query_string, method=method,
+                                              data=data, related_resource=related_resource)
 
         if 400 <= response['status'] < 600:
             error_msg = '{} Error: [{}] request for {}. Error Content: {}'.format(
