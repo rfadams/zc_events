@@ -112,7 +112,7 @@ class EventClient(object):
 
         return response_key
 
-    def handle_request_event(self, event, viewset=None, relationship_viewset=None):
+    def handle_request_event(self, event, viewset=None, relationship_viewset=None, view_function=None):
         """
         Method to handle routing request event to appropriate view by constructing
         a request object based on the parameters of the event.
@@ -135,7 +135,9 @@ class EventClient(object):
         }
 
         # Call the viewset passing the appropriate params
-        if event.get('id') and event.get('relationship'):
+        if view_function:
+            result = view_function(request, event.get('id'))
+        elif event.get('id') and event.get('relationship'):
             result = relationship_viewset.as_view()(request, pk=event.get('id'),
                                                     related_field=event.get('relationship'))
         elif request.method == 'GET' and event.get('id') and event.get('related_resource'):
