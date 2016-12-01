@@ -84,7 +84,7 @@ class EventRequestsMock(object):
         self._calls.reset()
 
     def add(self, method, resource_type, pk=None, body='', match_querystring=False,
-            query_string=None, status=200, json=None):
+            query_string=None, status=200, json=None, related_resource=None):
 
         # if we were passed a `json` argument,
         # override the body and content_type
@@ -102,6 +102,7 @@ class EventRequestsMock(object):
             'body': body,
             'match_querystring': match_querystring,
             'status': status,
+            'related_resource': related_resource,
         })
 
     def add_callback(self, method, url, callback, match_querystring=False,
@@ -156,6 +157,9 @@ class EventRequestsMock(object):
             return False
 
         if match.get('query_string') != kwargs.get('query_string'):
+            return False
+
+        if match.get('related_resource') != kwargs.get('related_resource'):
             return False
 
         return True
