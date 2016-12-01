@@ -202,7 +202,7 @@ class EventRequestsMock(object):
 
         def unbound_on_send(event_client, resource_type, *a, **kwargs):
             return self._on_request(event_client, resource_type, *a, **kwargs)
-        self._patcher = mock.patch('zc_events.client.EventClient.make_service_request',
+        self._patcher = mock.patch('zc_events.client.EventClient.fetch_remote_resource',
                                    unbound_on_send)
         self._patcher.start()
 
