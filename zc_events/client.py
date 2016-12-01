@@ -182,7 +182,7 @@ class EventClient(object):
 
         return ujson.loads(zlib.decompress(result[1]))
 
-    def make_service_request(self, resource_type, resource_id=None, user_id=None, query_string=None, method='GET',
+    def make_service_request(self, resource_type, resource_id=None, user_id=None, query_string=None, method=None,
                              data=None, related_resource=None):
         """
         Emit a request event on behalf of a service.
@@ -222,6 +222,7 @@ class EventClient(object):
         if params:
             query_string = urllib.urlencode(params)
 
-        response = self.make_service_request(resource_type, pk, user_id, query_string)
+        response = self.make_service_request(resource_type, resource_id=pk,
+                                             user_id=user_id, query_string=query_string, method='GET', related_resource=related_resource)
         wrapped_resource = wrap_resource_from_response(response)
         return wrapped_resource
