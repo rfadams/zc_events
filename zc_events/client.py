@@ -216,12 +216,15 @@ class EventClient(object):
 
         return response
 
-    def get_remote_resource(self, resource_type, pk, user_id=None, include=None, page_size=None, related_resource=None):
+    def get_remote_resource(self, resource_type, pk=None, user_id=None, include=None, page_size=None, related_resource=None):
         """
         Function called by services to make a request to another service for a resource.
         """
         query_string = None
         params = {}
+        if pk and isinstance(pk, (list, set)):
+            params['filter[id__in]'] = ','.join([str(_) for _ in pk])
+            pk = None
         if include:
             params['include'] = include
 
