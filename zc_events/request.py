@@ -38,6 +38,12 @@ class RemoteResourceWrapper(object):
         self.data = result if result else data
         self.create_properties_from_data(included)
 
+    def __repr__(self):
+        return '<{0}: {1}>'.format(self.type, self.id)
+
+    def __str__(self):
+        return repr(self)
+
     def _get_from_include(self, included, obj):
         if included:
             res = included.get((obj['type'], obj['id']))
