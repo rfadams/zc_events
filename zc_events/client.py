@@ -42,7 +42,8 @@ def create_django_request_object(event):
 
     request = HttpRequest()
     request.GET = QueryDict(event.get('query_string'))
-    request.read = lambda: ujson.dumps(event.get('body'))
+    if event.get('body'):
+        request.read = lambda: ujson.dumps(event.get('body'))
 
     request.encoding = 'utf-8'
     request.method = event['method'].upper()
@@ -88,6 +89,8 @@ class EventClient(object):
             stale=45,
         )
 
+        self.exchange = 'microservice-events-{}'.format(settings.STAGING_NAME)
+
     def emit_microservice_event(self, event_type, *args, **kwargs):
         task_id = str(uuid.uuid4())
 
@@ -111,7 +114,7 @@ class EventClient(object):
         with self.pika_pool.acquire() as cxn:
             cxn.channel.queue_declare(queue=event_queue_name, durable=True)
             response = cxn.channel.basic_publish(
-                'microservice-events',
+                self.exchange,
                 '',
                 event_body,
                 pika.BasicProperties(
