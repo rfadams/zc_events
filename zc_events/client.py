@@ -122,8 +122,9 @@ class EventClient(object):
 
         if not response:
             logger.info(
-                'MICROSERVICE_EVENT::EMIT_FAILURE: Failure emitting [{}:{}] event for object ({}:{}) and user {}'.format(
-                    event_type, task_id, kwargs.get('resource_type'), kwargs.get('resource_id'), kwargs.get('user_id')))
+                '''MICROSERVICE_EVENT::EMIT_FAILURE: Failure emitting [{}:{}] event \
+                for object ({}:{}) and user {}'''.format(event_type, task_id, kwargs.get('resource_type'),
+                                                         kwargs.get('resource_id'), kwargs.get('user_id')))
             raise EmitEventException("Message may have failed to deliver")
 
         return response
@@ -189,7 +190,7 @@ class EventClient(object):
 
     def get_request_event_response(self, response_key):
         """
-        3 second blocking read on Redis to retrieve the result of a request event.
+        Blocking read on Redis to retrieve the result of a request event.
         """
         result = self.redis_client.blpop(response_key, 5)
         if not result:
@@ -231,7 +232,8 @@ class EventClient(object):
 
         return response
 
-    def get_remote_resource(self, resource_type, pk=None, user_id=None, include=None, page_size=None, related_resource=None):
+    def get_remote_resource(self, resource_type, pk=None, user_id=None, include=None, page_size=None,
+                            related_resource=None):
         """
         Function called by services to make a request to another service for a resource.
         """
@@ -250,6 +252,7 @@ class EventClient(object):
             query_string = urllib.urlencode(params)
 
         response = self.make_service_request(resource_type, resource_id=pk,
-                                             user_id=user_id, query_string=query_string, method='GET', related_resource=related_resource)
+                                             user_id=user_id, query_string=query_string, method='GET',
+                                             related_resource=related_resource)
         wrapped_resource = wrap_resource_from_response(response)
         return wrapped_resource
