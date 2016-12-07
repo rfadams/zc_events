@@ -21,10 +21,40 @@ logger = logging.getLogger('django')
 
 
 def structure_response(status, data):
+    """
+    Compress a JSON object with zlib for inserting into redis.
+    """
     return zlib.compress(ujson.dumps({
         'status': status,
         'body': data
     }))
+
+
+def create_django_request_object(event):
+    """
+    Create a Django HTTPRequest object with the appropriate attributes pulled
+    from the event.
+    """
+    if 'service' in event['roles']:
+        jwt_payload = {'roles': event['roles']}
+    else:
+        jwt_payload = {'id': event['user_id'], 'roles': event['roles']}
+
+    request = HttpRequest()
+    request.GET = QueryDict(event.get('query_string'))
+    request.read = lambda: ujson.dumps(event.get('body'))
+
+    request.encoding = 'utf-8'
+    request.method = event['method'].upper()
+    request.META = {
+        'HTTP_AUTHORIZATION': 'JWT {}'.format(jwt_encode_handler(jwt_payload)),
+        'QUERY_STRING': event.get('query_string'),
+        'HTTP_HOST': event.get('http_host', 'local.zerocater.com'),
+        'CONTENT_TYPE': 'application/vnd.api+json',
+        'CONTENT_LENGTH': '99999',
+    }
+
+    return request
 
 
 class MethodNotAllowed(Exception):
@@ -118,26 +148,7 @@ class EventClient(object):
         Method to handle routing request event to appropriate view by constructing
         a request object based on the parameters of the event.
         """
-        # Creates appropriate request object
-        if 'service' in event['roles']:
-            jwt_payload = {'roles': event['roles']}
-        else:
-            jwt_payload = {'id': event['user_id'], 'roles': event['roles']}
-
-        request = HttpRequest()
-        request.GET = QueryDict(event.get('query_string'))
-
-        request.read = lambda: ujson.dumps(event.get('body'))
-
-        request.encoding = 'utf-8'
-        request.method = event['method'].upper()
-        request.META = {
-            'HTTP_AUTHORIZATION': 'JWT {}'.format(jwt_encode_handler(jwt_payload)),
-            'QUERY_STRING': event.get('query_string'),
-            'HTTP_HOST': event.get('http_host', 'local.zerocater.com'),
-            'CONTENT_TYPE': 'application/vnd.api+json',
-            'CONTENT_LENGTH': '99999',
-        }
+        request = create_django_request_object(event)
 
         # Call the viewset passing the appropriate params
         if event.get('id') and event.get('relationship'):
