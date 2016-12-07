@@ -3,9 +3,10 @@ from django.conf import settings
 
 
 class TaskRouter(object):
+
     def route_for_task(self, task, args=None, kwargs=None):
         if re.match('^microservice.*', task) is not None:
-            return {'exchange': 'microservice-events',
+            return {'exchange': 'microservice-events-{}'.format(settings.STAGING_NAME),
                     'exchange_type': 'fanout',
                     'routing_key': ''}
         else:
