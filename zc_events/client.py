@@ -126,13 +126,17 @@ class EventClient(object):
 
         request = HttpRequest()
         request.GET = QueryDict(event.get('query_string'))
-        request.POST = QueryDict(event.get('body'))
+
+        request.read = lambda: ujson.dumps(event.get('body'))
+
         request.encoding = 'utf-8'
         request.method = event['method'].upper()
         request.META = {
             'HTTP_AUTHORIZATION': 'JWT {}'.format(jwt_encode_handler(jwt_payload)),
             'QUERY_STRING': event.get('query_string'),
             'HTTP_HOST': event.get('http_host', 'local.zerocater.com'),
+            'CONTENT_TYPE': 'application/vnd.api+json',
+            'CONTENT_LENGTH': '99999',
         }
 
         # Call the viewset passing the appropriate params
