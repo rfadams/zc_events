@@ -89,7 +89,7 @@ class EventClient(object):
             stale=45,
         )
 
-        self.exchange = 'microservice-events-{}'.format(settings.STAGING_NAME)
+        self.exchange = settings.EVENTS_EXCHANGE
 
     def emit_microservice_event(self, event_type, *args, **kwargs):
         task_id = str(uuid.uuid4())

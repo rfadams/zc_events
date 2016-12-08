@@ -6,7 +6,7 @@ class TaskRouter(object):
 
     def route_for_task(self, task, args=None, kwargs=None):
         if re.match('^microservice.*', task) is not None:
-            return {'exchange': 'microservice-events-{}'.format(settings.STAGING_NAME),
+            return {'exchange': settings.EVENTS_EXCHANGE,
                     'exchange_type': 'fanout',
                     'routing_key': ''}
         else:
