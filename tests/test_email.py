@@ -5,6 +5,7 @@ from zc_events.client import EventClient
 
 
 class EmailTests(TestCase):
+
     def setUp(self):
         self.send_email_kwargs = {
             'from_email': 'from@test.com',
@@ -26,7 +27,7 @@ class EmailTests(TestCase):
         with self.assertRaises(Exception):
             self.event_client.send_email()
 
-    @mock.patch('zc_events.client.get_s3_email_bucket')
+    @mock.patch('zc_events.email.get_s3_email_bucket')
     @mock.patch('zc_events.client.EventClient.emit_microservice_event')
     def test_send_email(self, mock_emit_event, mock_s3_email_bucket):
         self.event_client.send_email(**self.send_email_kwargs)
@@ -39,7 +40,7 @@ class EmailTests(TestCase):
 
         self.assertTrue(event_args['task_id'])
 
-    @mock.patch('zc_events.client.get_s3_email_bucket')
+    @mock.patch('zc_events.email.get_s3_email_bucket')
     @mock.patch('zc_events.client.EventClient.emit_microservice_event')
     def test_send_email_no_html_body(self, mock_emit_event, mock_s3_email_bucket):
         self.send_email_kwargs['html_body'] = ''
@@ -54,7 +55,7 @@ class EmailTests(TestCase):
         self.assertEqual(event_args['html_body_key'], None)
         self.assertNotEqual(event_args['plaintext_body_key'], None)
 
-    @mock.patch('zc_events.client.get_s3_email_bucket')
+    @mock.patch('zc_events.email.get_s3_email_bucket')
     @mock.patch('zc_events.client.EventClient.emit_microservice_event')
     def test_send_email_no_plaintext_body(self, mock_emit_event, mock_s3_email_bucket):
         self.send_email_kwargs['plaintext_body'] = ''
@@ -69,7 +70,7 @@ class EmailTests(TestCase):
         self.assertEqual(event_args['plaintext_body_key'], None)
         self.assertNotEqual(event_args['html_body_key'], None)
 
-    @mock.patch('zc_events.client.get_s3_email_bucket')
+    @mock.patch('zc_events.email.get_s3_email_bucket')
     @mock.patch('zc_events.client.EventClient.emit_microservice_event')
     def test_send_email_multiple_attachments(self, mock_emit_event, mock_get_bucket):
         attachments = [
@@ -84,7 +85,7 @@ class EmailTests(TestCase):
         attachments_keys = mock_emit_event.call_args_list[0][1]['attachments_keys']
         self.assertEqual(len(attachments_keys), len(attachments))
 
-    @mock.patch('zc_events.client.get_s3_email_bucket')
+    @mock.patch('zc_events.email.get_s3_email_bucket')
     @mock.patch('zc_events.client.EventClient.emit_microservice_event')
     def test_send_email_files_and_attachments(self, mock_emit_event, mock_get_bucket):
         attachments = [('file1.pdf', 'application/pdf', None), ]
@@ -97,7 +98,7 @@ class EmailTests(TestCase):
         attachments_keys = mock_emit_event.call_args_list[0][1]['attachments_keys']
         self.assertEqual(len(attachments_keys), len(attachments) + len(files))
 
-    @mock.patch('zc_events.client.get_s3_email_bucket')
+    @mock.patch('zc_events.email.get_s3_email_bucket')
     @mock.patch('zc_events.client.EventClient.emit_microservice_event')
     def test_send_email_headers(self, mock_emit_event, mock_get_bucket):
         headers = {'send_email_header': True}
@@ -108,7 +109,7 @@ class EmailTests(TestCase):
         headers = mock_emit_event.call_args_list[0][1]['headers']
         self.assertEqual(len(headers), len(headers))
 
-    @mock.patch('zc_events.client.get_s3_email_bucket')
+    @mock.patch('zc_events.email.get_s3_email_bucket')
     @mock.patch('zc_events.client.EventClient.emit_microservice_event')
     def test_send_email_use_string_parameters(self, mock_emit_event, mock_get_bucket):
         to = 'to_string@zerocater.com'
@@ -131,7 +132,7 @@ class EmailTests(TestCase):
         self.assertEqual(event_bcc, bcc.split(','))
         self.assertEqual(event_reply_to, reply_to.split(','))
 
-    @mock.patch('zc_events.client.get_s3_email_bucket')
+    @mock.patch('zc_events.email.get_s3_email_bucket')
     @mock.patch('zc_events.client.EventClient.emit_microservice_event')
     def test_send_email_invalid_to__fail(self, mock_emit_event, mock_get_bucket):
         to = {'to': 'to_string@zerocater.com'}
@@ -142,7 +143,7 @@ class EmailTests(TestCase):
 
         mock_emit_event.assert_not_called()
 
-    @mock.patch('zc_events.client.get_s3_email_bucket')
+    @mock.patch('zc_events.email.get_s3_email_bucket')
     @mock.patch('zc_events.client.EventClient.emit_microservice_event')
     def test_send_email_no_recipients__fail(self, mock_emit_event, mock_get_bucket):
         self.send_email_kwargs['to'] = None
