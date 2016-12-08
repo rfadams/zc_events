@@ -9,7 +9,9 @@ In order to send and receive marketplace events through RabbitMQ there is some c
 In the `settings.py` file, add the following lines
 
 ```python
-events_exchange = Exchange('microservice-events-{}'.format(STAGING_NAME), type='fanout')
+EVENTS_EXCHANGE = 'microservice-events' + ('' if STAGING_NAME == 'production' else '-{}'.format(STAGING_NAME))
+
+events_exchange = Exchange(EVENTS_EXCHANGE, type='fanout')
 
 CELERY_QUEUES = (
     # Add this line
