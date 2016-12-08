@@ -228,6 +228,11 @@ class EventClient(object):
 
         kwargs['email_uuid'] = email_uuid
 
+        to = kwargs.get('to')
+        from_email = kwargs.get('from_email')
+        attachments = kwargs.get('attachments')
+        files = kwargs.get('files')
+
         if logger:
             msg = '''MICROSERVICE_SEND_EMAIL: Upload email with UUID {}, to {}, from {},
             with attachments {} and files {}'''
