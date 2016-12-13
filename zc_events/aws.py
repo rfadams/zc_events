@@ -1,52 +1,74 @@
-from datetime import date
-import time
-
+import sys
+import uuid
 import boto
 from boto.s3.key import Key
+
 from django.conf import settings
 
 
-S3_BUCKET_NAME = 'zc-mp-email'
-
-
-class MissingCredentialsError(Exception):
+class S3IOException(Exception):
     pass
 
 
-def get_s3_email_bucket():
-    aws_access_key_id = settings.AWS_ACCESS_KEY_ID
-    aws_secret_access_key = settings.AWS_SECRET_ACCESS_KEY
-    if not (aws_access_key_id and aws_secret_access_key):
-        msg = 'You need to set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in your settings file.'
-        raise MissingCredentialsError(msg)
+def save_contents_from_string(stringified_data, aws_bucket_name, content_key=None,
+                              aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                              aws_secret_assess_key=settings.AWS_SECRET_ACCESS_KEY):
+    """Save data (provided in string format) to S3 bucket and return s3 key."""
+    try:
+        if not content_key:
+            content_key = str(uuid.uuid4())
 
-    conn = boto.connect_s3(aws_access_key_id, aws_secret_access_key)
-    bucket = conn.get_bucket(S3_BUCKET_NAME)
-    return bucket
+        connection = boto.connect_s3(aws_access_key_id, aws_secret_assess_key)
+        bucket = connection.get_bucket(aws_bucket_name)
 
-
-def generate_s3_folder_name(email_uuid):
-    email_date = date.today().isoformat()
-    email_timestamp = int(time.time())
-    return "{}/{}_{}".format(email_date, email_timestamp, email_uuid)
-
-
-def generate_s3_content_key(s3_folder_name, content_type, content_name=''):
-    content_key = "{}/{}".format(s3_folder_name, content_type)
-    if content_name:
-        content_key += '_{}'.format(content_name)
-    return content_key
+        key = Key(bucket, content_key)
+        key.set_contents_from_string(stringified_data)
+        return content_key
+    except Exception as error:
+        msg = 'Failed to save contents to S3. aws_bucket_name: {}, content_key: {}, access_key: {}, secret_key: {}, ' \
+              'error_message: {}'.format(aws_bucket_name, content_key, aws_access_key_id, aws_secret_assess_key,
+                                         error.message)
+        raise S3IOException(msg), None, sys.exc_info()[2]
 
 
-def upload_string_to_s3(bucket, content_key, content):
-    if content:
-        k = Key(bucket)
-        k.key = content_key
-        k.set_contents_from_string(content)
+def save_contents_from_filename(filepath, aws_bucket_name, content_key=None,
+                                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                                aws_secret_assess_key=settings.AWS_SECRET_ACCESS_KEY):
+    """Upload a local file to S3 bucket and return S3 key."""
+    try:
+        if not content_key:
+            content_key = str(uuid.uuid4())
+
+        connection = boto.connect_s3(aws_access_key_id, aws_secret_assess_key)
+        bucket = connection.get_bucket(aws_bucket_name)
+
+        k = Key(bucket, content_key)
+        k.set_contents_from_filename(filepath)
+        return content_key
+    except Exception as error:
+        msg = 'Failed to save contents to S3. filepath: {}, aws_bucket_name: {}, content_key: {}, access_key: {}, ' \
+              'secret_key: {}, error_message: {}'.format(filepath, aws_bucket_name, content_key, aws_access_key_id,
+                                                         aws_secret_assess_key, error.message)
+        raise S3IOException(msg), None, sys.exc_info()[2]
 
 
-def upload_file_to_s3(bucket, content_key, filename):
-    if filename:
-        k = Key(bucket)
-        k.key = content_key
-        k.set_contents_from_filename(filename)
+def read_contents_as_string(aws_bucket_name, content_key, delete=False,
+                            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                            aws_secret_assess_key=settings.AWS_SECRET_ACCESS_KEY):
+    """Get the contents of an S3 file as string and optionally delete the file from the bucket."""
+    try:
+        connection = boto.connect_s3(aws_access_key_id, aws_secret_assess_key)
+        bucket = connection.get_bucket(aws_bucket_name)
+
+        key = Key(bucket, content_key)
+        output = key.get_contents_as_string()
+
+        if delete:
+            key.delete()
+
+        return output
+    except Exception as error:
+        msg = 'Failed to save contents to S3. aws_bucket_name: {}, content_key: {}, delete: {}, access_key: {}, ' \
+              'secret_key: {}, error_message: {}'.format(aws_bucket_name, content_key, delete, aws_access_key_id,
+                                                         aws_secret_assess_key, error.message)
+        raise S3IOException(msg), None, sys.exc_info()[2]

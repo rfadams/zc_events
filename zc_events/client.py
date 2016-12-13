@@ -226,8 +226,6 @@ class EventClient(object):
 
         email_uuid = uuid.uuid4()
 
-        kwargs['email_uuid'] = email_uuid
-
         to = kwargs.get('to')
         from_email = kwargs.get('from_email')
         attachments = kwargs.get('attachments')
@@ -238,7 +236,7 @@ class EventClient(object):
             with attachments {} and files {}'''
             logger.info(msg.format(email_uuid, to, from_email, attachments, files))
 
-        event_data = generate_email_data(*args, **kwargs)
+        event_data = generate_email_data(email_uuid, *args, **kwargs)
 
         if logger:
             logger.info('MICROSERVICE_SEND_EMAIL: Sent email with UUID {} and data {}'.format(

@@ -1,20 +1,33 @@
 import six
-import uuid
+from datetime import date
+import time
 
-from zc_events.aws import generate_s3_content_key, upload_string_to_s3, upload_file_to_s3, \
-    get_s3_email_bucket, generate_s3_folder_name
+from zc_events.aws import save_contents_from_string, save_contents_from_filename
+
+S3_BUCKET_NAME = 'zc-mp-email'
 
 
-def generate_email_data(from_email=None, to=None, cc=None, bcc=None, reply_to=None,
-                        subject=None, plaintext_body=None, html_body=None, headers=None,
-                        files=None, attachments=None, user_id=None, resource_type=None, resource_id=None,
-                        logger=None, email_uuid=None):
+def generate_s3_folder_name(email_uuid):
+    email_date = date.today().isoformat()
+    email_timestamp = int(time.time())
+    return "{}/{}_{}".format(email_date, email_timestamp, email_uuid)
+
+
+def generate_s3_content_key(s3_folder_name, content_type, content_name=''):
+    content_key = "{}/{}".format(s3_folder_name, content_type)
+    if content_name:
+        content_key += '_{}'.format(content_name)
+    return content_key
+
+
+def generate_email_data(email_uuid, from_email=None, to=None, cc=None, bcc=None, reply_to=None, subject=None, plaintext_body=None,
+                        html_body=None, headers=None, files=None, attachments=None, user_id=None, resource_type=None,
+                        resource_id=None):
     """
     files:       A list of file paths
     attachments: A list of tuples of the format (filename, content_type, content)
     """
 
-    bucket = get_s3_email_bucket()
     s3_folder_name = generate_s3_folder_name(email_uuid)
 
     to = to.split(',') if isinstance(to, six.string_types) else to
@@ -33,26 +46,26 @@ def generate_email_data(from_email=None, to=None, cc=None, bcc=None, reply_to=No
     html_body_key = None
     if html_body:
         html_body_key = generate_s3_content_key(s3_folder_name, 'html')
-        upload_string_to_s3(bucket, html_body_key, html_body)
+        save_contents_from_string(html_body, S3_BUCKET_NAME, html_body_key)
 
     plaintext_body_key = None
     if plaintext_body:
         plaintext_body_key = generate_s3_content_key(s3_folder_name, 'plaintext')
-        upload_string_to_s3(bucket, plaintext_body_key, plaintext_body)
+        save_contents_from_string(plaintext_body, S3_BUCKET_NAME, plaintext_body_key)
 
     attachments_keys = []
     if attachments:
         for filename, mimetype, attachment in attachments:
             attachment_key = generate_s3_content_key(s3_folder_name, 'attachment',
                                                      content_name=filename)
-            upload_string_to_s3(bucket, attachment_key, attachment)
+            save_contents_from_string(attachment, S3_BUCKET_NAME, attachment_key)
             attachments_keys.append(attachment_key)
     if files:
         for filepath in files:
             filename = filepath.split('/')[-1]
             attachment_key = generate_s3_content_key(s3_folder_name, 'attachment',
                                                      content_name=filename)
-            upload_file_to_s3(bucket, attachment_key, filepath)
+            save_contents_from_filename(filepath, S3_BUCKET_NAME, attachment_key)
             attachments_keys.append(attachment_key)
 
     event_data = {
