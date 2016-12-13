@@ -90,3 +90,7 @@ from slots_and_orders import event_client
 order = event_client.get_remote_resource('Order', '23131024')
 print 'Order name: {}'.format(order.name)
 ```
+
+## Util functions
+
+You may need to save or read data from S3 as part of your event processing. In such cases, refer to `zc_events.aws.py` module. It contains a few helper functions to do common routines. 
