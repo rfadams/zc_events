@@ -1,5 +1,7 @@
+from __future__ import division
+
 import logging
-import six
+import math
 import urllib
 import uuid
 import zlib
@@ -14,6 +16,8 @@ from inflection import underscore
 from zc_events.exceptions import EmitEventException, RequestTimeout, ServiceRequestException
 from zc_events.request import wrap_resource_from_response
 from zc_events.email import generate_email_data
+from zc_events.aws import save_contents_from_string
+from zc_events.utils import event_payload
 from zc_events.django_request import structure_response, create_django_request_object
 
 
@@ -244,3 +248,32 @@ class EventClient(object):
             ))
 
         self.emit_microservice_event('send_email', **event_data)
+
+    def emit_index_rebuild_event(self, event_name, resource_type, model, batch_size, serializer, queryset=None):
+        """
+        A special helper method to emit events related to index_rebuilding.
+        Note: AWS_INDEXER_BUCKET_NAME must be present in your settings.
+        """
+
+        if queryset is None:
+            queryset = model.objects.all()
+
+        objects_count = queryset.count()
+        total_events_count = int(math.ceil(objects_count / batch_size))
+        emitted_events_count = 0
+
+        while emitted_events_count < total_events_count:
+            start_index = emitted_events_count * batch_size
+            end_index = start_index + batch_size
+            data = []
+
+            for instance in queryset.order_by('id')[start_index:end_index]:
+                instance_data = serializer(instance)
+                data.append(instance_data)
+
+            filename = save_contents_from_string(data, settings.AWS_INDEXER_BUCKET_NAME)
+            payload = event_payload(resource_type=resource_type, resource_id=None, user_id=None,
+                                    meta={'s3_key': filename})
+
+            self.emit_microservice_event(event_name, **payload)
+            emitted_events_count += 1
