@@ -10,9 +10,9 @@ class S3IOException(Exception):
     pass
 
 
-def save_contents_from_string(stringified_data, aws_bucket_name, content_key=None,
-                              aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                              aws_secret_assess_key=settings.AWS_SECRET_ACCESS_KEY):
+def save_string_contents_to_s3(stringified_data, aws_bucket_name, content_key=None,
+                               aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                               aws_secret_assess_key=settings.AWS_SECRET_ACCESS_KEY):
     """Save data (provided in string format) to S3 bucket and return s3 key."""
     try:
         if not content_key:
@@ -31,9 +31,9 @@ def save_contents_from_string(stringified_data, aws_bucket_name, content_key=Non
         raise S3IOException(msg), None, sys.exc_info()[2]
 
 
-def save_contents_from_filename(filepath, aws_bucket_name, content_key=None,
-                                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                                aws_secret_assess_key=settings.AWS_SECRET_ACCESS_KEY):
+def save_file_contents_to_s3(filepath, aws_bucket_name, content_key=None,
+                             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                             aws_secret_assess_key=settings.AWS_SECRET_ACCESS_KEY):
     """Upload a local file to S3 bucket and return S3 key."""
     try:
         if not content_key:
@@ -52,9 +52,9 @@ def save_contents_from_filename(filepath, aws_bucket_name, content_key=None,
         raise S3IOException(msg), None, sys.exc_info()[2]
 
 
-def read_contents_as_string(aws_bucket_name, content_key, delete=False,
-                            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                            aws_secret_assess_key=settings.AWS_SECRET_ACCESS_KEY):
+def read_s3_file_as_string(aws_bucket_name, content_key, delete=False,
+                           aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                           aws_secret_assess_key=settings.AWS_SECRET_ACCESS_KEY):
     """Get the contents of an S3 file as string and optionally delete the file from the bucket."""
     try:
         connection = boto.connect_s3(aws_access_key_id, aws_secret_assess_key)

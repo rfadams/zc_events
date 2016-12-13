@@ -2,7 +2,7 @@ import six
 from datetime import date
 import time
 
-from zc_events.aws import save_contents_from_string, save_contents_from_filename
+from zc_events.aws import save_string_contents_to_s3, save_file_contents_to_s3
 
 S3_BUCKET_NAME = 'zc-mp-email'
 
@@ -46,26 +46,26 @@ def generate_email_data(email_uuid, from_email=None, to=None, cc=None, bcc=None,
     html_body_key = None
     if html_body:
         html_body_key = generate_s3_content_key(s3_folder_name, 'html')
-        save_contents_from_string(html_body, S3_BUCKET_NAME, html_body_key)
+        save_string_contents_to_s3(html_body, S3_BUCKET_NAME, html_body_key)
 
     plaintext_body_key = None
     if plaintext_body:
         plaintext_body_key = generate_s3_content_key(s3_folder_name, 'plaintext')
-        save_contents_from_string(plaintext_body, S3_BUCKET_NAME, plaintext_body_key)
+        save_string_contents_to_s3(plaintext_body, S3_BUCKET_NAME, plaintext_body_key)
 
     attachments_keys = []
     if attachments:
         for filename, mimetype, attachment in attachments:
             attachment_key = generate_s3_content_key(s3_folder_name, 'attachment',
                                                      content_name=filename)
-            save_contents_from_string(attachment, S3_BUCKET_NAME, attachment_key)
+            save_string_contents_to_s3(attachment, S3_BUCKET_NAME, attachment_key)
             attachments_keys.append(attachment_key)
     if files:
         for filepath in files:
             filename = filepath.split('/')[-1]
             attachment_key = generate_s3_content_key(s3_folder_name, 'attachment',
                                                      content_name=filename)
-            save_contents_from_filename(filepath, S3_BUCKET_NAME, attachment_key)
+            save_file_contents_to_s3(filepath, S3_BUCKET_NAME, attachment_key)
             attachments_keys.append(attachment_key)
 
     event_data = {
