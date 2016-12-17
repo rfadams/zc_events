@@ -253,6 +253,8 @@ class EventClient(object):
         """
         A special helper method to emit events related to index_rebuilding.
         Note: AWS_INDEXER_BUCKET_NAME must be present in your settings.
+
+        We loop over the table and each turn, we take `batch_size` objects and emit an event for them.
         """
 
         if queryset is None:

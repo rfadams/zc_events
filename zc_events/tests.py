@@ -53,34 +53,33 @@ class GlobalIndexRebuildTestMixin(object):
 
     def test_emitting_event_with_correct_attributes__pass(self, mock_save_string_contents_to_s3,
                                                           mock_emit_microservice_event):
-        total_events = int(math.ceil(self.objects_count / self.default_batch_size))
-        s3_keys = [str(uuid.uuid4()) for i in xrange(total_events)]
-        mock_save_string_contents_to_s3.side_effect = s3_keys
+        s3_key = 'k'
+        mock_save_string_contents_to_s3.side_effect = s3_key
 
         self.resource_index_rebuild_task()
 
-        events_count = 0
-        while events_count < total_events:
-            start_index = events_count * self.default_batch_size
+        data = []
+        payloads = []
+
+        total_events = int(math.ceil(self.objects_count / self.default_batch_size))
+
+        for i in xrange(total_events):
+            start_index = i * self.default_batch_size
             end_index = start_index + self.default_batch_size
 
-            data = []
+            instance_data = [
+                self.serializer.__func__(instance)
+                for instance in self._queryset.order_by('id')[start_index:end_index]
+            ]
 
-            for instance in self._queryset.order_by('id')[start_index:end_index]:
-                instance_data = self.serializer.__func__(instance)
+            pld = event_payload(self.resource_type, None, None, {'s3_key': s3_key})
 
-                for attr in self.attributes:
-                    msg = 'Attribute {} not found in serialized model instance. data: {}'
-                    self.assertTrue(attr in instance_data, msg.format(attr, instance_data))
+            data.append(instance_data)
+            payloads.append(pld)
 
-                data.append(instance_data)
-
-            mock_save_string_contents_to_s3.assert_any_call(data, settings.AWS_INDEXER_BUCKET_NAME)
-
-            s3_key = s3_keys[events_count]
-            payload = event_payload(self.resource_type, None, None, {'s3_key': s3_key})
+        for instance_data, payload in zip(data, payloads):
+            mock_save_string_contents_to_s3.assert_any_call(instance_data, settings.AWS_INDEXER_BUCKET_NAME)
             mock_emit_microservice_event.assert_any_call(self.event_name, **payload)
-            events_count += 1
 
     def test_filtering_data_works__pass(self, mock_save_string_contents_to_s3, mock_emit_microservice_event):
         # If both model and queryset are defined, this test ensures filters applied on the queryset returns less
@@ -90,12 +89,3 @@ class GlobalIndexRebuildTestMixin(object):
                   'Make sure processed objects differ when using both querysets. ' \
                   'Otherwise, set queryset to None.'
             self.assertTrue(self.queryset.count() < self.model.objects.count(), msg)
-
-    def test_event_not_emitted_from_received_index_rebuild_event_with_different_resource_type__pass(
-            self, mock_save_string_contents_to_s3, mock_emit_microservice_event):
-
-        self.index_rebuild_event_task(resource_type='Some Other Undefined Resource Type',
-                                      meta={'batch_size': self.custom_batch_size})
-
-        mock_save_string_contents_to_s3.assert_not_called()
-        mock_emit_microservice_event.assert_not_called()
