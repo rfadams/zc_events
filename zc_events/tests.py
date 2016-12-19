@@ -1,11 +1,11 @@
 from __future__ import division
 
-import uuid
+import ujson
 import math
 
 from django.conf import settings
 
-from zc_events.utils import event_payload
+from zc_events.utils import notification_event_payload
 
 
 class GlobalIndexRebuildTestMixin(object):
@@ -72,13 +72,14 @@ class GlobalIndexRebuildTestMixin(object):
                 for instance in self._queryset.order_by('id')[start_index:end_index]
             ]
 
-            pld = event_payload(self.resource_type, None, None, {'s3_key': s3_key})
+            pld = notification_event_payload(self.resource_type, None, None, {'s3_key': s3_key})
 
             data.append(instance_data)
             payloads.append(pld)
 
         for instance_data, payload in zip(data, payloads):
-            mock_save_string_contents_to_s3.assert_any_call(instance_data, settings.AWS_INDEXER_BUCKET_NAME)
+            stringified_data = ujson.dumps(instance_data)
+            mock_save_string_contents_to_s3.assert_any_call(stringified_data, settings.AWS_INDEXER_BUCKET_NAME)
             mock_emit_microservice_event.assert_any_call(self.event_name, **payload)
 
     def test_filtering_data_works__pass(self, mock_save_string_contents_to_s3, mock_emit_microservice_event):

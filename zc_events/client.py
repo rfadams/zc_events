@@ -17,7 +17,7 @@ from zc_events.exceptions import EmitEventException, RequestTimeout, ServiceRequ
 from zc_events.request import wrap_resource_from_response
 from zc_events.email import generate_email_data
 from zc_events.aws import save_string_contents_to_s3
-from zc_events.utils import event_payload
+from zc_events.utils import notification_event_payload
 from zc_events.django_request import structure_response, create_django_request_object
 
 
@@ -273,9 +273,10 @@ class EventClient(object):
                 instance_data = serializer(instance)
                 data.append(instance_data)
 
-            filename = save_string_contents_to_s3(data, settings.AWS_INDEXER_BUCKET_NAME)
-            payload = event_payload(resource_type=resource_type, resource_id=None, user_id=None,
-                                    meta={'s3_key': filename})
+            stringified_data = ujson.dumps(data)
+            filename = save_string_contents_to_s3(stringified_data, settings.AWS_INDEXER_BUCKET_NAME)
+            payload = notification_event_payload(resource_type=resource_type, resource_id=None, user_id=None,
+                                                 meta={'s3_key': filename})
 
             self.emit_microservice_event(event_name, **payload)
             emitted_events_count += 1

@@ -32,16 +32,19 @@ def model_to_dict(instance, included_attributes={}):
             if not attr_value:
                 break
 
-        # Ensure that attr_value is native python datatype
-        if type(attr_value) in (type(datetime.date), type(datetime.datetime), type(datetime.time)):
+        # Ensure that attr_value is a native python datatype
+        if type(attr_value) in (datetime.date, datetime.datetime, datetime.time):
             attr_value = str(attr_value)
+
+        if type(attr_value) not in (type(None), int, long, float, bool, str, unicode, list, dict):
+            raise TypeError('Unexpected value for {} attribute. I found {}'.format(attr_name, type(attr_value)))
 
         data.setdefault(name, attr_value)
 
     return data
 
 
-def event_payload(resource_type, resource_id, user_id, meta):
+def notification_event_payload(resource_type, resource_id, user_id, meta):
     """Create event payload."""
     return {
         'resource_type': resource_type,
