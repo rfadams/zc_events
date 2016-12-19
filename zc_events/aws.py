@@ -2,7 +2,6 @@ import sys
 import uuid
 import boto
 from boto.s3.key import Key
-from boto.exception import StandardError
 
 from django.conf import settings
 
