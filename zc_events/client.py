@@ -4,7 +4,6 @@ import logging
 import math
 import urllib
 import uuid
-import zlib
 
 import pika
 import pika_pool
@@ -13,12 +12,12 @@ import ujson
 from django.conf import settings
 from inflection import underscore
 
-from zc_events.exceptions import EmitEventException, RequestTimeout, ServiceRequestException
-from zc_events.request import wrap_resource_from_response
+from zc_events.exceptions import EmitEventException
 from zc_events.email import generate_email_data
 from zc_events.aws import save_string_contents_to_s3
 from zc_events.utils import notification_event_payload
 from zc_events.django_request import structure_response, create_django_request_object
+from zc_events.event import ResourceRequestEvent
 
 
 logger = logging.getLogger('django')
@@ -98,20 +97,9 @@ class EventClient(object):
 
         return response
 
-    def emit_request_event(self, event_type, method, user_id, roles, **kwargs):
-        """Emit microservice request event."""
-        response_key = 'request-{}'.format(uuid.uuid4())
-
-        self.emit_microservice_event(
-            event_type,
-            method=method,
-            user_id=user_id,
-            roles=roles,
-            response_key=response_key,
-            **kwargs
-        )
-
-        return response_key
+    def wait_for_response(self, response_key):
+        response = self.redis_client.blpop(response_key, 5)
+        return response
 
     def handle_request_event(self, event, viewset=None, relationship_viewset=None):
         """
@@ -157,49 +145,35 @@ class EventClient(object):
         self.redis_client.rpush(event['response_key'], structure_response(result.status_code, result.rendered_content))
         self.redis_client.expire(event['response_key'], 60)
 
-    def get_request_event_response(self, response_key):
-        """
-        Blocking read on Redis to retrieve the result of a request event.
-        """
-        result = self.redis_client.blpop(response_key, 5)
-        if not result:
-            raise RequestTimeout
-
-        return ujson.loads(zlib.decompress(result[1]))
-
-    def fetch_remote_resource(self, resource_type, resource_id=None, user_id=None, query_string=None, method=None,
+    def async_service_request(self, resource_type, resource_id=None, user_id=None, query_string=None, method=None,
                               data=None, related_resource=None):
-        """
-        Emit a request event on behalf of a service.
-        """
-        key = self.emit_request_event(
+
+        event = ResourceRequestEvent(
+            self,
             '{}_request'.format(underscore(resource_type)),
-            method,
-            user_id,
-            ['service'],
+            method=method,
+            user_id=user_id,
+            roles=['service'],
             id=resource_id,
             query_string=query_string,
             related_resource=related_resource,
             body=data,
         )
-        response = self.get_request_event_response(key)
 
-        return response
+        event.emit()
+
+        return event
 
     def make_service_request(self, resource_type, resource_id=None, user_id=None, query_string=None, method=None,
                              data=None, related_resource=None):
 
-        response = self.fetch_remote_resource(resource_type, resource_id=resource_id, user_id=user_id,
-                                              query_string=query_string, method=method,
-                                              data=data, related_resource=related_resource)
+        event = self.async_service_request(resource_type, resource_id=resource_id, user_id=user_id,
+                                           query_string=query_string, method=method,
+                                           data=data, related_resource=related_resource)
+        return event.complete()
 
-        if 400 <= response['status'] < 600:
-            raise ServiceRequestException(response['body'])
-
-        return response
-
-    def get_remote_resource(self, resource_type, pk=None, user_id=None, include=None, page_size=None,
-                            related_resource=None):
+    def get_remote_resource_async(self, resource_type, pk=None, user_id=None, include=None, page_size=None,
+                                  related_resource=None):
         """
         Function called by services to make a request to another service for a resource.
         """
@@ -217,10 +191,18 @@ class EventClient(object):
         if params:
             query_string = urllib.urlencode(params)
 
-        response = self.make_service_request(resource_type, resource_id=pk,
-                                             user_id=user_id, query_string=query_string, method='GET',
-                                             related_resource=related_resource)
-        wrapped_resource = wrap_resource_from_response(response)
+        event = self.async_service_request(resource_type, resource_id=pk, user_id=user_id,
+                                           query_string=query_string, method='GET', related_resource=related_resource)
+
+        return event
+
+    def get_remote_resource(self, resource_type, pk=None, user_id=None, include=None, page_size=None,
+                            related_resource=None):
+
+        event = self.get_remote_resource_async(resource_type, pk=pk, user_id=user_id, include=include,
+                                               page_size=page_size, related_resource=related_resource)
+
+        wrapped_resource = event.complete()
         return wrapped_resource
 
     def send_email(self, *args, **kwargs):

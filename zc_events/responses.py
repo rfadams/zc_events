@@ -10,6 +10,7 @@ import urllib
 
 from collections import namedtuple, Sequence, Sized
 from functools import update_wrapper
+from inflection import camelize
 
 from zc_events.exceptions import ServiceRequestException
 
@@ -155,7 +156,7 @@ class EventRequestsMock(object):
         return match
 
     def _has_event_match(self, match, **kwargs):
-        if str(match.get('pk')) != str(kwargs.get('resource_id')):
+        if str(match.get('pk')) != str(kwargs.get('id')):
             return False
 
         if match.get('query_string') and kwargs.get('query_string') and \
@@ -167,7 +168,9 @@ class EventRequestsMock(object):
 
         return True
 
-    def _on_request(self, event_client, resource_type, **kwargs):
+    def _on_request(self, event, **kwargs):
+        resource_type = camelize(event.event_type.replace('_request', ''))
+
         match = self._find_match(resource_type, **kwargs)
 
         method = kwargs['method']
@@ -203,14 +206,19 @@ class EventRequestsMock(object):
         except ImportError:
             import mock
 
-        def unbound_on_send(event_client, resource_type, *a, **kwargs):
-            return self._on_request(event_client, resource_type, *a, **kwargs)
-        self._patcher = mock.patch('zc_events.client.EventClient.fetch_remote_resource',
-                                   unbound_on_send)
-        self._patcher.start()
+        def unbound_on_send(event, *a, **kwargs):
+            return self._on_request(event, *event.args, **event.kwargs)
+
+        self._patcher_1 = mock.patch('zc_events.client.EventClient.emit_microservice_event')
+
+        self._patcher_2 = mock.patch('zc_events.event.ResourceRequestEvent.wait',
+                                     unbound_on_send)
+        self._patcher_1.start()
+        self._patcher_2.start()
 
     def stop(self, allow_assert=True):
-        self._patcher.stop()
+        self._patcher_1.stop()
+        self._patcher_2.stop()
         if allow_assert and self.assert_all_requests_are_fired and self._events:
             raise AssertionError(
                 'Not all requests have been executed {0!r}'.format(

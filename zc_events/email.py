@@ -22,7 +22,7 @@ def generate_s3_content_key(s3_folder_name, content_type, content_name=''):
 
 def generate_email_data(email_uuid, from_email=None, to=None, cc=None, bcc=None, reply_to=None, subject=None,
                         plaintext_body=None, html_body=None, headers=None, files=None, attachments=None,
-                        user_id=None, resource_type=None, resource_id=None):
+                        user_id=None, resource_type=None, resource_id=None, **kwargs):
     """
     files:       A list of file paths
     attachments: A list of tuples of the format (filename, content_type, content)
