@@ -194,10 +194,7 @@ class EventClient(object):
                                               data=data, related_resource=related_resource)
 
         if 400 <= response['status'] < 600:
-            error_msg = '{} Error: [{}] request for {}. Error Content: {}'.format(
-                response['status'], method, ':'.join([resource_type, str(resource_id), str(query_string)]),
-                response['body'])
-            raise ServiceRequestException(error_msg)
+            raise ServiceRequestException(response['body'])
 
         return response
 
