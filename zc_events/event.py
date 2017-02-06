@@ -62,7 +62,7 @@ class RequestEvent(Event):
             self._response = self.wait()
 
         if 400 <= self._response['status'] < 600:
-            raise ServiceRequestException(response['body'])
+            raise ServiceRequestException(self._response['body'])
 
         self._complete = True
 
