@@ -170,7 +170,7 @@ class EventClient(object):
         event = self.async_service_request(resource_type, resource_id=resource_id, user_id=user_id,
                                            query_string=query_string, method=method,
                                            data=data, related_resource=related_resource)
-        return event.complete()
+        return event.wait()
 
     def get_remote_resource_async(self, resource_type, pk=None, user_id=None, include=None, page_size=None,
                                   related_resource=None):
