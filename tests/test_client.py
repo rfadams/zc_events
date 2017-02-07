@@ -18,30 +18,8 @@ def test_structure_response():
     assert response['body'] == body
 
 
-class TestEventClient:
-    def setup(self):
-        self.event_client = EventClient()
-
-    @mock.patch('zc_events.client.EventClient.emit_microservice_event')
-    def test_emit_request_event(self, mock_emit_microservice_event):
-        request_event_args = {
-            'event_type': 'order_request',
-            'method': 'GET',
-            'user_id': '1234',
-            'roles': ['service'],
-            'id': None,
-            'query_string': 'include=order_items',
-            'related_resource': None,
-            'body': None,
-        }
-
-        response_key = self.event_client.emit_request_event(**request_event_args)
-
-        assert response_key is not None
-        assert mock_emit_microservice_event.called
-
-
 class TestHandleRequestEvent:
+
     def setup(self):
         self.event_client = EventClient()
         self.mock_viewset = mock.Mock()
