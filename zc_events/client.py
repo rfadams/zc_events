@@ -173,12 +173,13 @@ class EventClient(object):
         return event.wait()
 
     def get_remote_resource_async(self, resource_type, pk=None, user_id=None, include=None, page_size=None,
-                                  related_resource=None):
+                                  related_resource=None, query_params=None):
         """
         Function called by services to make a request to another service for a resource.
         """
         query_string = None
-        params = {}
+        params = query_params or {}
+
         if pk and isinstance(pk, (list, set)):
             params['filter[id__in]'] = ','.join([str(_) for _ in pk])
             pk = None
