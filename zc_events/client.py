@@ -54,16 +54,19 @@ class EventClient(object):
             stale=45,
         )
 
-        self.exchange = settings.EVENTS_EXCHANGE
+        self.events_exchange = settings.EVENTS_EXCHANGE
+        self.notifications_exchange = settings.NOTIFICATIONS_EXCHANGE
 
-    def emit_microservice_event(self, event_type, *args, **kwargs):
+    def emit_microservice_message(self, exchange, routing_key, event_type, *args, **kwargs):
         task_id = str(uuid.uuid4())
 
         keyword_args = {'task_id': task_id}
         keyword_args.update(kwargs)
 
+        task = 'microservice.notification' if routing_key else 'microservice.event'
+
         message = {
-            'task': 'microservice.event',
+            'task': task,
             'id': task_id,
             'args': [event_type] + list(args),
             'kwargs': keyword_args
@@ -72,15 +75,15 @@ class EventClient(object):
         event_queue_name = '{}-events'.format(settings.SERVICE_NAME)
         event_body = ujson.dumps(message)
 
-        logger.info('MICROSERVICE_EVENT::EMIT: Emitting [{}:{}] event for object ({}:{}) and user {}'.format(
-            event_type, task_id, kwargs.get('resource_type'), kwargs.get('resource_id'),
+        logger.info('{}::EMIT: Emitting [{}:{}] event for object ({}:{}) and user {}'.format(
+            exchange.upper(), event_type, task_id, kwargs.get('resource_type'), kwargs.get('resource_id'),
             kwargs.get('user_id')))
 
         with self.pika_pool.acquire() as cxn:
             cxn.channel.queue_declare(queue=event_queue_name, durable=True)
             response = cxn.channel.basic_publish(
-                self.exchange,
-                '',
+                exchange,
+                routing_key,
                 event_body,
                 pika.BasicProperties(
                     content_type='application/json',
@@ -90,12 +93,19 @@ class EventClient(object):
 
         if not response:
             logger.info(
-                '''MICROSERVICE_EVENT::EMIT_FAILURE: Failure emitting [{}:{}] event \
-                for object ({}:{}) and user {}'''.format(event_type, task_id, kwargs.get('resource_type'),
-                                                         kwargs.get('resource_id'), kwargs.get('user_id')))
+                '''{}::EMIT_FAILURE: Failure emitting [{}:{}] event for object ({}:{}) and user {}'''.format(
+                    exchange.upper(), event_type, task_id, kwargs.get('resource_type'),
+                    kwargs.get('resource_id'), kwargs.get('user_id')))
             raise EmitEventException("Message may have failed to deliver")
 
         return response
+
+    def emit_microservice_event(self, event_type, *args, **kwargs):
+        return self.emit_microservice_message(self.events_exchange, '', event_type, *args, **kwargs)
+
+    def emit_microservice_notification(self, event_type, *args, **kwargs):
+        return self.emit_microservice_message(
+            self.notifications_exchange, 'microservice.notification', event_type, *args, **kwargs)
 
     def wait_for_response(self, response_key):
         response = self.redis_client.blpop(response_key, 5)
@@ -227,7 +237,7 @@ class EventClient(object):
                 email_uuid, event_data
             ))
 
-        self.emit_microservice_event('send_email', **event_data)
+        self.emit_microservice_notification('send_email', **event_data)
 
     def emit_index_rebuild_event(self, event_name, resource_type, model, batch_size, serializer, queryset=None):
         """
