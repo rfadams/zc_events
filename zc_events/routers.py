@@ -12,7 +12,7 @@ class TaskRouter(object):
         elif re.match('^microservice.notification', task) is not None:
             return {'exchange': settings.NOTIFICATIONS_EXCHANGE,
                     'exchange_type': 'topic',
-                    'routing_key': 'microservice.notification'}
+                    'routing_key': 'microservice.notification.*'}
         else:
             return {'exchange': 'default',
                     'exchange_type': 'direct',

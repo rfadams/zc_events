@@ -103,9 +103,13 @@ class EventClient(object):
     def emit_microservice_event(self, event_type, *args, **kwargs):
         return self.emit_microservice_message(self.events_exchange, '', event_type, *args, **kwargs)
 
-    def emit_microservice_notification(self, event_type, *args, **kwargs):
+    def emit_microservice_email_notification(self, event_type, *args, **kwargs):
         return self.emit_microservice_message(
-            self.notifications_exchange, 'microservice.notification', event_type, *args, **kwargs)
+            self.notifications_exchange, 'microservice.notification.email', event_type, *args, **kwargs)
+
+    def emit_microservice_text_notification(self, event_type, *args, **kwargs):
+        return self.emit_microservice_message(
+            self.notifications_exchange, 'microservice.notification.text', event_type, *args, **kwargs)
 
     def wait_for_response(self, response_key):
         response = self.redis_client.blpop(response_key, 5)
@@ -237,7 +241,7 @@ class EventClient(object):
                 email_uuid, event_data
             ))
 
-        self.emit_microservice_notification('send_email', **event_data)
+        self.emit_microservice_email_notification('send_email', **event_data)
 
     def emit_index_rebuild_event(self, event_name, resource_type, model, batch_size, serializer, queryset=None):
         """
