@@ -11,9 +11,12 @@ class S3IOException(Exception):
 
 
 def save_string_contents_to_s3(stringified_data, aws_bucket_name, content_key=None,
-                               aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                               aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY):
+                               aws_access_key_id=None, aws_secret_access_key=None):
     """Save data (provided in string format) to S3 bucket and return s3 key."""
+
+    aws_access_key_id = aws_access_key_id or settings.AWS_ACCESS_KEY_ID
+    aws_secret_access_key = aws_secret_access_key or settings.AWS_SECRET_ACCESS_KEY
+
     try:
         if not content_key:
             content_key = str(uuid.uuid4())
@@ -31,9 +34,12 @@ def save_string_contents_to_s3(stringified_data, aws_bucket_name, content_key=No
 
 
 def save_file_contents_to_s3(filepath, aws_bucket_name, content_key=None,
-                             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY):
+                             aws_access_key_id=None, aws_secret_access_key=None):
     """Upload a local file to S3 bucket and return S3 key."""
+
+    aws_access_key_id = aws_access_key_id or settings.AWS_ACCESS_KEY_ID
+    aws_secret_access_key = aws_secret_access_key or settings.AWS_SECRET_ACCESS_KEY
+
     try:
         if not content_key:
             content_key = str(uuid.uuid4())
@@ -51,9 +57,12 @@ def save_file_contents_to_s3(filepath, aws_bucket_name, content_key=None,
 
 
 def read_s3_file_as_string(aws_bucket_name, content_key, delete=False,
-                           aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                           aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY):
+                           aws_access_key_id=None, aws_secret_access_key=None):
     """Get the contents of an S3 file as string and optionally delete the file from the bucket."""
+
+    aws_access_key_id = aws_access_key_id or settings.AWS_ACCESS_KEY_ID
+    aws_secret_access_key = aws_secret_access_key or settings.AWS_SECRET_ACCESS_KEY
+
     try:
         connection = boto.connect_s3(aws_access_key_id, aws_secret_access_key)
         bucket = connection.get_bucket(aws_bucket_name)
