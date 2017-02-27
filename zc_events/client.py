@@ -55,7 +55,7 @@ class EventClient(object):
         )
 
         self.events_exchange = settings.EVENTS_EXCHANGE
-        self.notifications_exchange = settings.NOTIFICATIONS_EXCHANGE
+        self.notifications_exchange = getattr(settings, 'NOTIFICATIONS_EXCHANGE', None)
 
     def emit_microservice_message(self, exchange, routing_key, event_type, *args, **kwargs):
         task_id = str(uuid.uuid4())
