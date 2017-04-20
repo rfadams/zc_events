@@ -17,7 +17,10 @@ def _included_to_dict(included):
 
 
 def wrap_resource_from_response(response):
-    json_response = ujson.loads(response['body'])
+    if type(response) is dict:
+        json_response = response
+    else:
+        json_response = ujson.loads(response['body'])
 
     if 'data' not in json_response:
         msg = 'Error retrieving resource. Url: {0}. Content: {1}'.format(response.request.url, response.content)
