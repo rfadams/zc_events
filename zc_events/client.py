@@ -218,7 +218,7 @@ class EventClient(object):
 
         event = self.async_resource_request(resource_type, resource_id=pk, user_id=user_id,
                                             query_string=query_string, method='GET',
-                                            related_resource=related_resource)
+                                            related_resource=related_resource, roles=roles)
 
         return event
 
@@ -231,6 +231,15 @@ class EventClient(object):
 
         wrapped_resource = event.complete()
         return wrapped_resource
+
+    def get_remote_resource_data(self, resource_type, pk=None, user_id=None, include=None, page_size=None,
+                                 related_resource=None, query_params=None, roles=None):
+
+        event = self.get_remote_resource_async(resource_type, pk=pk, user_id=user_id, include=include,
+                                               page_size=page_size, related_resource=related_resource,
+                                               query_params=query_params, roles=roles)
+        data = event.wait()
+        return data
 
     def send_email(self, *args, **kwargs):
 
