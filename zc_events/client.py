@@ -130,7 +130,7 @@ class EventClient(object):
             raise ImproperlyConfigured('handle_request_event must be passed either a view or viewset')
 
         response_key = kwargs.pop('response_key')
-        pk = kwargs.get('id', None)
+        pk = kwargs.get('pk', None)
         relationship = kwargs.get('relationship', None)
         related_resource = kwargs.pop('related_resource', None)
 
@@ -192,7 +192,7 @@ class EventClient(object):
             method=method,
             user_id=user_id,
             roles=roles,
-            id=resource_id,
+            pk=resource_id,
             query_string=query_string,
             related_resource=related_resource,
             body=data,
