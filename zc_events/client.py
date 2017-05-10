@@ -126,7 +126,7 @@ class EventClient(object):
         kwargs_copy = copy.deepcopy(event)
         request, kwargs = create_django_request_object(kwargs_copy)
 
-        if not view or viewset:
+        if not any([view, viewset, relationship_viewset]):
             raise ImproperlyConfigured('handle_request_event must be passed either a view or viewset')
 
         response_key = kwargs.pop('response_key')

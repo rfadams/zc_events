@@ -30,8 +30,9 @@ def create_django_request_object(kwargs):
     if user_id:
         jwt_payload['id'] = user_id
 
+    query_string = kwargs.pop('query_string')
     request = HttpRequest()
-    request.GET = QueryDict(kwargs.pop('query_string'))
+    request.GET = QueryDict(query_string)
 
     body = kwargs.pop('body', None)
     if body:
@@ -41,7 +42,7 @@ def create_django_request_object(kwargs):
     request.method = kwargs.pop('method').upper()
     request.META = {
         'HTTP_AUTHORIZATION': 'JWT {}'.format(jwt_encode_handler(jwt_payload)),
-        'QUERY_STRING': kwargs.pop('query_string'),
+        'QUERY_STRING': query_string,
         'HTTP_HOST': kwargs.pop('http_host', 'local.zerocater.com'),
         'CONTENT_TYPE': 'application/vnd.api+json',
         'CONTENT_LENGTH': '99999',
