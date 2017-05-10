@@ -18,6 +18,7 @@ from zc_events.aws import save_string_contents_to_s3
 from zc_events.utils import notification_event_payload
 from zc_events.django_request import structure_response, create_django_request_object
 from zc_events.event import ResourceRequestEvent
+from zc_common.jwt_auth.permissions import ANONYMOUS_ROLES, SERVICE_ROLES
 
 
 logger = logging.getLogger('django')
@@ -162,12 +163,21 @@ class EventClient(object):
     def async_service_request(self, resource_type, resource_id=None, user_id=None, query_string=None, method=None,
                               data=None, related_resource=None):
 
+        return self.async_resource_request(resource_type, resource_id=resource_id, user_id=user_id,
+                                           query_string=query_string, method=method, data=data,
+                                           related_resource=related_resource, roles=SERVICE_ROLES)
+
+    def async_resource_request(self, resource_type, resource_id=None, user_id=None, query_string=None, method=None,
+                               data=None, related_resource=None, roles=None):
+
+        roles = roles or ANONYMOUS_ROLES
+
         event = ResourceRequestEvent(
             self,
             '{}_request'.format(underscore(resource_type)),
             method=method,
             user_id=user_id,
-            roles=['service'],
+            roles=roles,
             id=resource_id,
             query_string=query_string,
             related_resource=related_resource,
@@ -187,7 +197,7 @@ class EventClient(object):
         return event.wait()
 
     def get_remote_resource_async(self, resource_type, pk=None, user_id=None, include=None, page_size=None,
-                                  related_resource=None, query_params=None):
+                                  related_resource=None, query_params=None, roles=None):
         """
         Function called by services to make a request to another service for a resource.
         """
@@ -206,16 +216,18 @@ class EventClient(object):
         if params:
             query_string = urllib.urlencode(params)
 
-        event = self.async_service_request(resource_type, resource_id=pk, user_id=user_id,
-                                           query_string=query_string, method='GET', related_resource=related_resource)
+        event = self.async_resource_request(resource_type, resource_id=pk, user_id=user_id,
+                                            query_string=query_string, method='GET',
+                                            related_resource=related_resource)
 
         return event
 
     def get_remote_resource(self, resource_type, pk=None, user_id=None, include=None, page_size=None,
-                            related_resource=None):
+                            related_resource=None, query_params=None, roles=None):
 
         event = self.get_remote_resource_async(resource_type, pk=pk, user_id=user_id, include=include,
-                                               page_size=page_size, related_resource=related_resource)
+                                               page_size=page_size, related_resource=related_resource,
+                                               query_params=query_params, roles=roles)
 
         wrapped_resource = event.complete()
         return wrapped_resource
