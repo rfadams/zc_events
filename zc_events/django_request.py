@@ -19,29 +19,32 @@ def structure_response(status, data):
     }))
 
 
-def create_django_request_object(event):
+def create_django_request_object(kwargs):
     """
     Create a Django HTTPRequest object with the appropriate attributes pulled
     from the event.
     """
-    if 'service' in event['roles']:
-        jwt_payload = {'roles': event['roles']}
-    else:
-        jwt_payload = {'id': event['user_id'], 'roles': event['roles']}
+    roles = kwargs.pop('roles')
+    user_id = kwargs.pop('user_id', None)
+    jwt_payload = {'roles': roles}
+    if user_id:
+        jwt_payload['id'] = user_id
 
     request = HttpRequest()
-    request.GET = QueryDict(event.get('query_string'))
-    if event.get('body'):
-        request.read = lambda: ujson.dumps(event.get('body'))
+    request.GET = QueryDict(kwargs.pop('query_string'))
+
+    body = kwargs.pop('body', None)
+    if body:
+        request.read = lambda: ujson.dumps(body)
 
     request.encoding = 'utf-8'
-    request.method = event['method'].upper()
+    request.method = kwargs.pop('method').upper()
     request.META = {
         'HTTP_AUTHORIZATION': 'JWT {}'.format(jwt_encode_handler(jwt_payload)),
-        'QUERY_STRING': event.get('query_string'),
-        'HTTP_HOST': event.get('http_host', 'local.zerocater.com'),
+        'QUERY_STRING': kwargs.pop('query_string'),
+        'HTTP_HOST': kwargs.pop('http_host', 'local.zerocater.com'),
         'CONTENT_TYPE': 'application/vnd.api+json',
         'CONTENT_LENGTH': '99999',
     }
 
-    return request
+    return request, kwargs

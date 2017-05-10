@@ -1,23 +1,25 @@
 from __future__ import division
 
+import copy
 import logging
 import math
+import ujson
 import urllib
 import uuid
 
 import pika
 import pika_pool
 import redis
-import ujson
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from inflection import underscore
 
-from zc_events.exceptions import EmitEventException
-from zc_events.email import generate_email_data
 from zc_events.aws import save_string_contents_to_s3
-from zc_events.utils import notification_event_payload
 from zc_events.django_request import structure_response, create_django_request_object
+from zc_events.email import generate_email_data
 from zc_events.event import ResourceRequestEvent
+from zc_events.exceptions import EmitEventException
+from zc_events.utils import notification_event_payload
 from zc_common.jwt_auth.permissions import ANONYMOUS_ROLES, SERVICE_ROLES
 
 
@@ -116,49 +118,61 @@ class EventClient(object):
         response = self.redis_client.blpop(response_key, 5)
         return response
 
-    def handle_request_event(self, event, viewset=None, relationship_viewset=None):
+    def handle_request_event(self, event, view=None, viewset=None, relationship_viewset=None):
         """
         Method to handle routing request event to appropriate view by constructing
         a request object based on the parameters of the event.
         """
-        request = create_django_request_object(event)
+        kwargs_copy = copy.deepcopy(event)
+        request, kwargs = create_django_request_object(kwargs_copy)
 
-        # Call the viewset passing the appropriate params
-        if event.get('id') and event.get('relationship'):
-            result = relationship_viewset.as_view()(request, pk=event.get('id'),
-                                                    related_field=event.get('relationship'))
-        elif request.method == 'GET' and event.get('id') and event.get('related_resource'):
-            result = viewset.as_view({'get': event.get('related_resource')})(request, pk=event.get('id'))
-        elif request.method == 'GET' and event.get('id'):
-            result = viewset.as_view({'get': 'retrieve'})(request, pk=event.get('id'))
-        elif request.method == 'PUT' and event.get('id'):
-            result = viewset.as_view({'put': 'update'})(request, pk=event.get('id'))
-        elif request.method == 'PATCH' and event.get('id'):
-            result = viewset.as_view({'patch': 'partial_update'})(request, pk=event.get('id'))
-        elif request.method == 'DELETE' and event.get('id'):
-            result = viewset.as_view({'delete': 'destroy'})(request, pk=event.get('id'))
+        if not view or viewset:
+            raise ImproperlyConfigured('handle_request_event must be passed either a view or viewset')
+
+        response_key = kwargs.pop('response_key')
+        pk = kwargs.get('id', None)
+        relationship = kwargs.get('relationship', None)
+        related_resource = kwargs.pop('related_resource', None)
+
+        if view:
+            handler = view.as_view()
+        elif pk and relationship:
+            handler = relationship_viewset.as_view()
+        elif request.method == 'GET' and pk and related_resource:
+            handler = viewset.as_view({'get': related_resource})
+        elif request.method == 'GET' and pk:
+            handler = viewset.as_view({'get': 'retrieve'})
+        elif request.method == 'PUT' and pk:
+            handler = viewset.as_view({'put': 'update'})
+        elif request.method == 'PATCH' and pk:
+            handler = viewset.as_view({'patch': 'partial_update'})
+        elif request.method == 'DELETE' and pk:
+            handler = viewset.as_view({'delete': 'destroy'})
         elif request.method == 'GET':
-            result = viewset.as_view({'get': 'list'})(request)
+            handler = viewset.as_view({'get': 'list'})
         elif request.method == 'POST':
-            result = viewset.as_view({'post': 'create'})(request)
-        elif request.method == 'OPTIONS' and event.get('id'):
-            result = viewset.as_view({
+            handler = viewset.as_view({'post': 'create'})
+        elif request.method == 'OPTIONS' and pk:
+            handler = viewset.as_view({
                 'get': 'retrieve',
                 'put': 'update',
                 'patch': 'partial_update',
                 'delete': 'destroy'
-            })(request, pk=event.get('id'))
+            })
         elif request.method == 'OPTIONS':
-            result = viewset.as_view({
+            handler = viewset.as_view({
                 'get': 'list',
                 'post': 'create',
-            })(request)
+            })
         else:
             raise MethodNotAllowed(request.method)
 
+        # Pass through remaining kwargs
+        result = handler(request, **kwargs)
+
         # Takes result and drops it into Redis with the key passed in the event
-        self.redis_client.rpush(event['response_key'], structure_response(result.status_code, result.rendered_content))
-        self.redis_client.expire(event['response_key'], 60)
+        self.redis_client.rpush(response_key, structure_response(result.status_code, result.rendered_content))
+        self.redis_client.expire(response_key, 60)
 
     def async_service_request(self, resource_type, resource_id=None, user_id=None, query_string=None, method=None,
                               data=None, related_resource=None):
