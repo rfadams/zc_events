@@ -140,32 +140,25 @@ class EventClient(object):
             handler = relationship_viewset.as_view()
         elif request.method == 'GET' and pk and related_resource:
             handler = viewset.as_view({'get': related_resource})
-        elif request.method == 'GET' and pk:
-            handler = viewset.as_view({'get': 'retrieve'})
-        elif request.method == 'PUT' and pk:
-            handler = viewset.as_view({'put': 'update'})
-        elif request.method == 'PATCH' and pk:
-            handler = viewset.as_view({'patch': 'partial_update'})
-        elif request.method == 'DELETE' and pk:
-            handler = viewset.as_view({'delete': 'destroy'})
-        elif request.method == 'GET':
-            handler = viewset.as_view({'get': 'list'})
-        elif request.method == 'POST':
-            handler = viewset.as_view({'post': 'create'})
-        elif request.method == 'OPTIONS' and pk:
-            handler = viewset.as_view({
-                'get': 'retrieve',
-                'put': 'update',
-                'patch': 'partial_update',
-                'delete': 'destroy'
-            })
-        elif request.method == 'OPTIONS':
-            handler = viewset.as_view({
-                'get': 'list',
-                'post': 'create',
-            })
         else:
-            raise MethodNotAllowed(request.method)
+            if pk:
+                methods = [
+                    ('get', 'retrieve'),
+                    ('put', 'update'),
+                    ('patch', 'partial_update'),
+                    ('delete', 'destroy'),
+                ]
+            else:
+                methods = [
+                    ('get', 'list'),
+                    ('post', 'create'),
+                ]
+            actions = {}
+            for x, y in methods:
+                if hasattr(viewset, y):
+                    actions[x] = y
+
+            handler = viewset.as_view(actions)
 
         # Pass through remaining kwargs
         result = handler(request, **kwargs)
