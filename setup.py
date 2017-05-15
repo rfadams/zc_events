@@ -14,14 +14,14 @@ def get_packages(package):
 
 setup(
     name='zc_events',
-    version='0.1.9',
+    version='0.1.10b',
     description="Shared code for ZeroCater microservices events",
     long_description='',
     keywords='zerocater python util',
     author='ZeroCater',
     author_email='tech@zerocater.com',
     url='https://github.com/ZeroCater/zc_events',
-    download_url='https://github.com/ZeroCater/zc_events/tarball/0.1.9',
+    download_url='https://github.com/ZeroCater/zc_events/tarball/0.1.10b',
     license='MIT',
     packages=get_packages('zc_events'),
     classifiers=[
