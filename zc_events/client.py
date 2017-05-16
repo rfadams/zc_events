@@ -143,8 +143,15 @@ class EventClient(object):
         Method to handle routing request event to appropriate view by constructing
         a request object based on the parameters of the event.
         """
-        kwargs_copy = copy.deepcopy(event)
-        request, kwargs = create_django_request_object(kwargs_copy)
+        kwargs = copy.deepcopy(event)
+        request = create_django_request_object(
+            roles=kwargs.pop('roles'),
+            query_string=kwargs.pop('query_string'),
+            method=kwargs.pop('method'),
+            user_id=kwargs.pop('user_id', None),
+            body=kwargs.pop('body', None),
+            http_host=kwargs.pop('http_host', None)
+        )
 
         if not any([view, viewset, relationship_viewset]):
             raise ImproperlyConfigured('handle_request_event must be passed either a view or viewset')

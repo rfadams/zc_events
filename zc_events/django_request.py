@@ -19,33 +19,32 @@ def structure_response(status, data):
     }))
 
 
-def create_django_request_object(kwargs):
+def create_django_request_object(roles, query_string, method, user_id=None, body=None, http_host=None):
     """
     Create a Django HTTPRequest object with the appropriate attributes pulled
     from the event.
     """
-    roles = kwargs.pop('roles')
-    user_id = kwargs.pop('user_id', None)
+    if not http_host:
+        http_host = 'local.zerocater.com'
+
     jwt_payload = {'roles': roles}
     if user_id:
         jwt_payload['id'] = user_id
 
-    query_string = kwargs.pop('query_string')
     request = HttpRequest()
     request.GET = QueryDict(query_string)
 
-    body = kwargs.pop('body', None)
     if body:
         request.read = lambda: ujson.dumps(body)
 
     request.encoding = 'utf-8'
-    request.method = kwargs.pop('method').upper()
+    request.method = method.upper()
     request.META = {
         'HTTP_AUTHORIZATION': 'JWT {}'.format(jwt_encode_handler(jwt_payload)),
         'QUERY_STRING': query_string,
-        'HTTP_HOST': kwargs.pop('http_host', 'local.zerocater.com'),
+        'HTTP_HOST': http_host,
         'CONTENT_TYPE': 'application/vnd.api+json',
         'CONTENT_LENGTH': '99999',
     }
 
-    return request, kwargs
+    return request
