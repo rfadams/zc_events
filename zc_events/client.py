@@ -116,8 +116,8 @@ class EventClient(object):
         response = self.redis_client.blpop(response_key, 5)
         return response
 
-    def _get_handler_for_viewset(self, viewset, pk):
-        if pk:
+    def _get_handler_for_viewset(self, viewset, is_detail):
+        if is_detail:
             methods = [
                 ('get', 'retrieve'),
                 ('put', 'update'),
@@ -158,23 +158,22 @@ class EventClient(object):
         relationship = event.get('relationship', None)
         related_resource = event.get('related_resource', None)
 
+        handler_kwargs = {}
         if view:
             handler = view.as_view()
-        elif pk and relationship:
-            handler = relationship_viewset.as_view()
-        elif request.method == 'GET' and pk and related_resource:
-            handler = viewset.as_view({'get': related_resource})
-        else:
-            handler = self._get_handler_for_viewset(viewset, pk)
-
-        # Pass through URL parameters
-        handler_kwargs = {}
-        if pk:
+        elif pk:
             handler_kwargs['pk'] = pk
-        if related_resource:
-            handler_kwargs['related_resource'] = related_resource
-        if relationship:
-            handler_kwargs['relationship'] = relationship
+            if relationship:
+                handler_kwargs['related_field'] = relationship
+                handler = relationship_viewset.as_view()
+            elif related_resource:
+                handler = viewset.as_view({'get': related_resource})
+                handler_kwargs['related_resource'] = related_resource
+            else:
+                handler = self._get_handler_for_viewset(viewset, is_detail=True)
+        else:
+            handler = self._get_handler_for_viewset(viewset, is_detail=False)
+
         result = handler(request, **handler_kwargs)
 
         # Takes result and drops it into Redis with the key passed in the event
