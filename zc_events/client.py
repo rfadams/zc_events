@@ -1,6 +1,5 @@
 from __future__ import division
 
-import copy
 import logging
 import math
 import ujson
@@ -13,6 +12,7 @@ import redis
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from inflection import underscore
+from zc_common.jwt_auth.permissions import ANONYMOUS_ROLES, SERVICE_ROLES
 
 from zc_events.aws import save_string_contents_to_s3
 from zc_events.django_request import structure_response, create_django_request_object
@@ -20,8 +20,6 @@ from zc_events.email import generate_email_data
 from zc_events.event import ResourceRequestEvent
 from zc_events.exceptions import EmitEventException
 from zc_events.utils import notification_event_payload
-from zc_common.jwt_auth.permissions import ANONYMOUS_ROLES, SERVICE_ROLES
-
 
 logger = logging.getLogger('django')
 
@@ -143,23 +141,22 @@ class EventClient(object):
         Method to handle routing request event to appropriate view by constructing
         a request object based on the parameters of the event.
         """
-        kwargs = copy.deepcopy(event)
         request = create_django_request_object(
-            roles=kwargs.pop('roles'),
-            query_string=kwargs.pop('query_string'),
-            method=kwargs.pop('method'),
-            user_id=kwargs.pop('user_id', None),
-            body=kwargs.pop('body', None),
-            http_host=kwargs.pop('http_host', None)
+            roles=event.get('roles'),
+            query_string=event.get('query_string'),
+            method=event.get('method'),
+            user_id=event.get('user_id', None),
+            body=event.get('body', None),
+            http_host=event.get('http_host', None)
         )
 
         if not any([view, viewset, relationship_viewset]):
             raise ImproperlyConfigured('handle_request_event must be passed either a view or viewset')
 
-        response_key = kwargs.pop('response_key')
-        pk = kwargs.get('pk', None)
-        relationship = kwargs.get('relationship', None)
-        related_resource = kwargs.pop('related_resource', None)
+        response_key = event.get('response_key')
+        pk = event.get('pk', None)
+        relationship = event.get('relationship', None)
+        related_resource = event.get('related_resource', None)
 
         if view:
             handler = view.as_view()
@@ -170,8 +167,15 @@ class EventClient(object):
         else:
             handler = self._get_handler_for_viewset(viewset, pk)
 
-        # Pass through remaining kwargs
-        result = handler(request, **kwargs)
+        # Pass through URL parameters
+        handler_kwargs = {}
+        if pk:
+            handler_kwargs['pk'] = pk
+        if related_resource:
+            handler_kwargs['related_resource'] = related_resource
+        if relationship:
+            handler_kwargs['relationship'] = relationship
+        result = handler(request, **handler_kwargs)
 
         # Takes result and drops it into Redis with the key passed in the event
         self.redis_client.rpush(response_key, structure_response(result.status_code, result.rendered_content))

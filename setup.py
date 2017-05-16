@@ -14,7 +14,7 @@ def get_packages(package):
 
 setup(
     name='zc_events',
-    version='0.1.10b1',
+    version='0.1.10b2',
     description="Shared code for ZeroCater microservices events",
     long_description='',
     keywords='zerocater python util',
