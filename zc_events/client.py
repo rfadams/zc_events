@@ -118,6 +118,26 @@ class EventClient(object):
         response = self.redis_client.blpop(response_key, 5)
         return response
 
+    def _get_handler_for_viewset(self, viewset, pk):
+        if pk:
+            methods = [
+                ('get', 'retrieve'),
+                ('put', 'update'),
+                ('patch', 'partial_update'),
+                ('delete', 'destroy'),
+            ]
+        else:
+            methods = [
+                ('get', 'list'),
+                ('post', 'create'),
+            ]
+        actions = {}
+        for method, action in methods:
+            if hasattr(viewset, action):
+                actions[method] = action
+
+        return viewset.as_view(actions)
+
     def handle_request_event(self, event, view=None, viewset=None, relationship_viewset=None):
         """
         Method to handle routing request event to appropriate view by constructing
@@ -141,24 +161,7 @@ class EventClient(object):
         elif request.method == 'GET' and pk and related_resource:
             handler = viewset.as_view({'get': related_resource})
         else:
-            if pk:
-                methods = [
-                    ('get', 'retrieve'),
-                    ('put', 'update'),
-                    ('patch', 'partial_update'),
-                    ('delete', 'destroy'),
-                ]
-            else:
-                methods = [
-                    ('get', 'list'),
-                    ('post', 'create'),
-                ]
-            actions = {}
-            for x, y in methods:
-                if hasattr(viewset, y):
-                    actions[x] = y
-
-            handler = viewset.as_view(actions)
+            handler = self._get_handler_for_viewset(viewset, pk)
 
         # Pass through remaining kwargs
         result = handler(request, **kwargs)
