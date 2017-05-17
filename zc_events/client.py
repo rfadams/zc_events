@@ -63,7 +63,7 @@ class EventClient(object):
         self.events_exchange = settings.EVENTS_EXCHANGE
         self.notifications_exchange = getattr(settings, 'NOTIFICATIONS_EXCHANGE', None)
 
-    def emit_microservice_message(self, exchange, routing_key, event_type, *args, **kwargs):
+    def emit_microservice_message(self, exchange, routing_key, event_type, priority=0, *args, **kwargs):
         task_id = str(uuid.uuid4())
 
         keyword_args = {'task_id': task_id}
@@ -93,7 +93,8 @@ class EventClient(object):
                 event_body,
                 pika.BasicProperties(
                     content_type='application/json',
-                    content_encoding='utf-8'
+                    content_encoding='utf-8',
+                    priority=priority
                 )
             )
 
@@ -194,7 +195,7 @@ class EventClient(object):
                                            related_resource=related_resource, roles=SERVICE_ROLES)
 
     def async_resource_request(self, resource_type, resource_id=None, user_id=None, query_string=None, method=None,
-                               data=None, related_resource=None, roles=None):
+                               data=None, related_resource=None, roles=None, priority=5):
 
         roles = roles or ANONYMOUS_ROLES
 
@@ -208,6 +209,7 @@ class EventClient(object):
             query_string=query_string,
             related_resource=related_resource,
             body=data,
+            priority=priority
         )
 
         event.emit()
@@ -223,7 +225,7 @@ class EventClient(object):
         return event.wait()
 
     def get_remote_resource_async(self, resource_type, pk=None, user_id=None, include=None, page_size=None,
-                                  related_resource=None, query_params=None, roles=None):
+                                  related_resource=None, query_params=None, roles=None, priority=9):
         """
         Function called by services to make a request to another service for a resource.
         """
@@ -244,7 +246,7 @@ class EventClient(object):
 
         event = self.async_resource_request(resource_type, resource_id=pk, user_id=user_id,
                                             query_string=query_string, method='GET',
-                                            related_resource=related_resource, roles=roles)
+                                            related_resource=related_resource, roles=roles, priority=priority)
 
         return event
 
