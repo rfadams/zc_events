@@ -18,8 +18,12 @@ from zc_events.aws import save_string_contents_to_s3
 from zc_events.utils import notification_event_payload
 from zc_events.django_request import structure_response, create_django_request_object
 from zc_events.event import ResourceRequestEvent
-from zc_common.jwt_auth.permissions import ANONYMOUS_ROLES, SERVICE_ROLES
 
+SERVICE_ACTOR = 'service'
+ANONYMOUS_ACTOR = 'anonymous'
+
+SERVICE_ROLES = [SERVICE_ACTOR]
+ANONYMOUS_ROLES = [ANONYMOUS_ACTOR]
 
 logger = logging.getLogger('django')
 
