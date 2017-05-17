@@ -164,6 +164,7 @@ class EventClient(object):
         elif pk:
             handler_kwargs['pk'] = pk
             if relationship:
+                # Relationship views expect this kwarg as 'related_field'. See https://goo.gl/WW4ePd
                 handler_kwargs['related_field'] = relationship
                 handler = relationship_viewset.as_view()
             elif related_resource:
