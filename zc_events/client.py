@@ -187,13 +187,6 @@ class EventClient(object):
         self.redis_client.rpush(response_key, structure_response(result.status_code, result.rendered_content))
         self.redis_client.expire(response_key, 60)
 
-    def async_service_request(self, resource_type, resource_id=None, user_id=None, query_string=None, method=None,
-                              data=None, related_resource=None):
-
-        return self.async_resource_request(resource_type, resource_id=resource_id, user_id=user_id,
-                                           query_string=query_string, method=method, data=data,
-                                           related_resource=related_resource, roles=SERVICE_ROLES)
-
     def async_resource_request(self, resource_type, resource_id=None, user_id=None, query_string=None, method=None,
                                data=None, related_resource=None, roles=None, priority=5):
 
@@ -219,18 +212,20 @@ class EventClient(object):
     def make_service_request(self, resource_type, resource_id=None, user_id=None, query_string=None, method=None,
                              data=None, related_resource=None):
 
-        event = self.async_service_request(resource_type, resource_id=resource_id, user_id=user_id,
-                                           query_string=query_string, method=method,
-                                           data=data, related_resource=related_resource)
+        roles = SERVICE_ROLES
+        event = self.async_resource_request(resource_type, resource_id=resource_id, user_id=user_id,
+                                            query_string=query_string, method=method,
+                                            data=data, related_resource=related_resource, roles=roles)
         return event.wait()
 
     def get_remote_resource_async(self, resource_type, pk=None, user_id=None, include=None, page_size=None,
-                                  related_resource=None, query_params=None, roles=None, priority=9):
+                                  related_resource=None, query_params=None, roles=None, priority=None):
         """
         Function called by services to make a request to another service for a resource.
         """
         query_string = None
         params = query_params or {}
+        method = 'GET'
 
         if pk and isinstance(pk, (list, set)):
             params['filter[id__in]'] = ','.join([str(_) for _ in pk])
@@ -245,7 +240,7 @@ class EventClient(object):
             query_string = urllib.urlencode(params)
 
         event = self.async_resource_request(resource_type, resource_id=pk, user_id=user_id,
-                                            query_string=query_string, method='GET',
+                                            query_string=query_string, method=method,
                                             related_resource=related_resource, roles=roles, priority=priority)
 
         return event
@@ -263,9 +258,10 @@ class EventClient(object):
     def get_remote_resource_data(self, resource_type, pk=None, user_id=None, include=None, page_size=None,
                                  related_resource=None, query_params=None, roles=None):
 
+        priority = 9
         event = self.get_remote_resource_async(resource_type, pk=pk, user_id=user_id, include=include,
                                                page_size=page_size, related_resource=related_resource,
-                                               query_params=query_params, roles=roles)
+                                               query_params=query_params, roles=roles, priority=priority)
         data = event.wait()
         return data
 
