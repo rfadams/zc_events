@@ -14,14 +14,14 @@ def get_packages(package):
 
 setup(
     name='zc_events',
-    version='0.1.10',
+    version='0.1.11',
     description="Shared code for ZeroCater microservices events",
     long_description='',
     keywords='zerocater python util',
     author='ZeroCater',
     author_email='tech@zerocater.com',
     url='https://github.com/ZeroCater/zc_events',
-    download_url='https://github.com/ZeroCater/zc_events/tarball/0.1.10',
+    download_url='https://github.com/ZeroCater/zc_events/tarball/0.1.11',
     license='MIT',
     packages=get_packages('zc_events'),
     classifiers=[
@@ -39,7 +39,7 @@ setup(
         'pika_pool>=0.1.3,<0.1.4',
         'redis>=2.10.5,<2.11.0',
         'ujson>=1.35,<1.36',
-        'zc_common>=0.3.0',
+        'zc_common>=0.3.13',
         'pyjwt>=1.4.0,<2.0.0',
     ]
 )

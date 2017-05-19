@@ -2,22 +2,23 @@ from __future__ import division
 
 import logging
 import math
+import ujson
 import urllib
 import uuid
 
 import pika
 import pika_pool
 import redis
-import ujson
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from inflection import underscore
 
-from zc_events.exceptions import EmitEventException
-from zc_events.email import generate_email_data
 from zc_events.aws import save_string_contents_to_s3
-from zc_events.utils import notification_event_payload
 from zc_events.django_request import structure_response, create_django_request_object
+from zc_events.email import generate_email_data
 from zc_events.event import ResourceRequestEvent
+from zc_events.exceptions import EmitEventException
+from zc_events.utils import notification_event_payload
 
 SERVICE_ACTOR = 'service'
 ANONYMOUS_ACTOR = 'anonymous'
@@ -62,7 +63,7 @@ class EventClient(object):
         self.events_exchange = settings.EVENTS_EXCHANGE
         self.notifications_exchange = getattr(settings, 'NOTIFICATIONS_EXCHANGE', None)
 
-    def emit_microservice_message(self, exchange, routing_key, event_type, *args, **kwargs):
+    def emit_microservice_message(self, exchange, routing_key, event_type, priority=0, *args, **kwargs):
         task_id = str(uuid.uuid4())
 
         keyword_args = {'task_id': task_id}
@@ -92,7 +93,8 @@ class EventClient(object):
                 event_body,
                 pika.BasicProperties(
                     content_type='application/json',
-                    content_encoding='utf-8'
+                    content_encoding='utf-8',
+                    priority=priority
                 )
             )
 
@@ -120,59 +122,73 @@ class EventClient(object):
         response = self.redis_client.blpop(response_key, 5)
         return response
 
-    def handle_request_event(self, event, viewset=None, relationship_viewset=None):
+    def _get_handler_for_viewset(self, viewset, is_detail):
+        if is_detail:
+            methods = [
+                ('get', 'retrieve'),
+                ('put', 'update'),
+                ('patch', 'partial_update'),
+                ('delete', 'destroy'),
+            ]
+        else:
+            methods = [
+                ('get', 'list'),
+                ('post', 'create'),
+            ]
+        actions = {}
+        for method, action in methods:
+            if hasattr(viewset, action):
+                actions[method] = action
+
+        return viewset.as_view(actions)
+
+    def handle_request_event(self, event, view=None, viewset=None, relationship_viewset=None):
         """
         Method to handle routing request event to appropriate view by constructing
         a request object based on the parameters of the event.
         """
-        request = create_django_request_object(event)
+        request = create_django_request_object(
+            roles=event.get('roles'),
+            query_string=event.get('query_string'),
+            method=event.get('method'),
+            user_id=event.get('user_id', None),
+            body=event.get('body', None),
+            http_host=event.get('http_host', None)
+        )
 
-        # Call the viewset passing the appropriate params
-        if event.get('id') and event.get('relationship'):
-            result = relationship_viewset.as_view()(request, pk=event.get('id'),
-                                                    related_field=event.get('relationship'))
-        elif request.method == 'GET' and event.get('id') and event.get('related_resource'):
-            result = viewset.as_view({'get': event.get('related_resource')})(request, pk=event.get('id'))
-        elif request.method == 'GET' and event.get('id'):
-            result = viewset.as_view({'get': 'retrieve'})(request, pk=event.get('id'))
-        elif request.method == 'PUT' and event.get('id'):
-            result = viewset.as_view({'put': 'update'})(request, pk=event.get('id'))
-        elif request.method == 'PATCH' and event.get('id'):
-            result = viewset.as_view({'patch': 'partial_update'})(request, pk=event.get('id'))
-        elif request.method == 'DELETE' and event.get('id'):
-            result = viewset.as_view({'delete': 'destroy'})(request, pk=event.get('id'))
-        elif request.method == 'GET':
-            result = viewset.as_view({'get': 'list'})(request)
-        elif request.method == 'POST':
-            result = viewset.as_view({'post': 'create'})(request)
-        elif request.method == 'OPTIONS' and event.get('id'):
-            result = viewset.as_view({
-                'get': 'retrieve',
-                'put': 'update',
-                'patch': 'partial_update',
-                'delete': 'destroy'
-            })(request, pk=event.get('id'))
-        elif request.method == 'OPTIONS':
-            result = viewset.as_view({
-                'get': 'list',
-                'post': 'create',
-            })(request)
+        if not any([view, viewset, relationship_viewset]):
+            raise ImproperlyConfigured('handle_request_event must be passed either a view or viewset')
+
+        response_key = event.get('response_key')
+        pk = event.get('pk', None)
+        relationship = event.get('relationship', None)
+        related_resource = event.get('related_resource', None)
+
+        handler_kwargs = {}
+        if view:
+            handler = view.as_view()
+        elif pk:
+            handler_kwargs['pk'] = pk
+            if relationship:
+                # Relationship views expect this kwarg as 'related_field'. See https://goo.gl/WW4ePd
+                handler_kwargs['related_field'] = relationship
+                handler = relationship_viewset.as_view()
+            elif related_resource:
+                handler = viewset.as_view({'get': related_resource})
+                handler_kwargs['related_resource'] = related_resource
+            else:
+                handler = self._get_handler_for_viewset(viewset, is_detail=True)
         else:
-            raise MethodNotAllowed(request.method)
+            handler = self._get_handler_for_viewset(viewset, is_detail=False)
+
+        result = handler(request, **handler_kwargs)
 
         # Takes result and drops it into Redis with the key passed in the event
-        self.redis_client.rpush(event['response_key'], structure_response(result.status_code, result.rendered_content))
-        self.redis_client.expire(event['response_key'], 60)
-
-    def async_service_request(self, resource_type, resource_id=None, user_id=None, query_string=None, method=None,
-                              data=None, related_resource=None):
-
-        return self.async_resource_request(resource_type, resource_id=resource_id, user_id=user_id,
-                                           query_string=query_string, method=method, data=data,
-                                           related_resource=related_resource, roles=SERVICE_ROLES)
+        self.redis_client.rpush(response_key, structure_response(result.status_code, result.rendered_content))
+        self.redis_client.expire(response_key, 60)
 
     def async_resource_request(self, resource_type, resource_id=None, user_id=None, query_string=None, method=None,
-                               data=None, related_resource=None, roles=None):
+                               data=None, related_resource=None, roles=None, priority=5):
 
         roles = roles or ANONYMOUS_ROLES
 
@@ -182,10 +198,11 @@ class EventClient(object):
             method=method,
             user_id=user_id,
             roles=roles,
-            id=resource_id,
+            pk=resource_id,
             query_string=query_string,
             related_resource=related_resource,
             body=data,
+            priority=priority
         )
 
         event.emit()
@@ -195,18 +212,20 @@ class EventClient(object):
     def make_service_request(self, resource_type, resource_id=None, user_id=None, query_string=None, method=None,
                              data=None, related_resource=None):
 
-        event = self.async_service_request(resource_type, resource_id=resource_id, user_id=user_id,
-                                           query_string=query_string, method=method,
-                                           data=data, related_resource=related_resource)
+        roles = SERVICE_ROLES
+        event = self.async_resource_request(resource_type, resource_id=resource_id, user_id=user_id,
+                                            query_string=query_string, method=method,
+                                            data=data, related_resource=related_resource, roles=roles)
         return event.wait()
 
     def get_remote_resource_async(self, resource_type, pk=None, user_id=None, include=None, page_size=None,
-                                  related_resource=None, query_params=None, roles=None):
+                                  related_resource=None, query_params=None, roles=None, priority=None):
         """
         Function called by services to make a request to another service for a resource.
         """
         query_string = None
         params = query_params or {}
+        method = 'GET'
 
         if pk and isinstance(pk, (list, set)):
             params['filter[id__in]'] = ','.join([str(_) for _ in pk])
@@ -221,8 +240,8 @@ class EventClient(object):
             query_string = urllib.urlencode(params)
 
         event = self.async_resource_request(resource_type, resource_id=pk, user_id=user_id,
-                                            query_string=query_string, method='GET',
-                                            related_resource=related_resource, roles=roles)
+                                            query_string=query_string, method=method,
+                                            related_resource=related_resource, roles=roles, priority=priority)
 
         return event
 
@@ -239,9 +258,10 @@ class EventClient(object):
     def get_remote_resource_data(self, resource_type, pk=None, user_id=None, include=None, page_size=None,
                                  related_resource=None, query_params=None, roles=None):
 
+        priority = 9
         event = self.get_remote_resource_async(resource_type, pk=pk, user_id=user_id, include=include,
                                                page_size=page_size, related_resource=related_resource,
-                                               query_params=query_params, roles=roles)
+                                               query_params=query_params, roles=roles, priority=priority)
         data = event.wait()
         return data
 
