@@ -85,8 +85,11 @@ class EventClient(object):
             exchange.upper(), event_type, task_id, kwargs.get('resource_type'), kwargs.get('resource_id'),
             kwargs.get('user_id')))
 
+        queue_arguments = {
+            'x-max-priority': 10
+        }
         with self.pika_pool.acquire() as cxn:
-            cxn.channel.queue_declare(queue=event_queue_name, durable=True)
+            cxn.channel.queue_declare(queue=event_queue_name, durable=True, arguments=queue_arguments)
             response = cxn.channel.basic_publish(
                 exchange,
                 routing_key,
