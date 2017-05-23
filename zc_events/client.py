@@ -122,7 +122,7 @@ class EventClient(object):
             self.notifications_exchange, 'microservice.notification.text', event_type, *args, **kwargs)
 
     def wait_for_response(self, response_key):
-        response = self.redis_client.blpop(response_key, 5)
+        response = self.redis_client.blpop(response_key, 60)
         return response
 
     def _get_handler_for_viewset(self, viewset, is_detail):
