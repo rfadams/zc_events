@@ -2,6 +2,7 @@ import sys
 import uuid
 import boto
 from boto.s3.key import Key
+from six import reraise as raise_
 
 from django.conf import settings
 
@@ -30,7 +31,7 @@ def save_string_contents_to_s3(stringified_data, aws_bucket_name, content_key=No
     except StandardError as error:
         msg = 'Failed to save contents to S3. aws_bucket_name: {}, content_key: {}, ' \
               'error_message: {}'.format(aws_bucket_name, content_key, error.message)
-        raise S3IOException(msg), None, sys.exc_info()[2]
+        raise_(S3IOException(msg), None, sys.exc_info()[2])
 
 
 def save_file_contents_to_s3(filepath, aws_bucket_name, content_key=None,
@@ -53,7 +54,7 @@ def save_file_contents_to_s3(filepath, aws_bucket_name, content_key=None,
     except StandardError as error:
         msg = 'Failed to save contents to S3. filepath: {}, aws_bucket_name: {}, content_key: {}, ' \
               'error_message: {}'.format(filepath, aws_bucket_name, content_key, error.message)
-        raise S3IOException(msg), None, sys.exc_info()[2]
+        raise_(S3IOException(msg), None, sys.exc_info()[2])
 
 
 def read_s3_file_as_string(aws_bucket_name, content_key, delete=False,
@@ -77,4 +78,4 @@ def read_s3_file_as_string(aws_bucket_name, content_key, delete=False,
     except StandardError as error:
         msg = 'Failed to save contents to S3. aws_bucket_name: {}, content_key: {}, delete: {}, ' \
               'error_message: {}'.format(aws_bucket_name, content_key, delete, error.message)
-        raise S3IOException(msg), None, sys.exc_info()[2]
+        raise_(S3IOException(msg), None, sys.exc_info()[2])
